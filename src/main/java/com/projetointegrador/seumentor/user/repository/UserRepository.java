@@ -1,6 +1,5 @@
 package com.projetointegrador.seumentor.user.repository;
 
-import java.lang.foreign.Linker.Option;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
