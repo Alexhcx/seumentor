@@ -15,18 +15,13 @@ public class UsersDetailsAdapterService implements UsersDetailsAdapter {
 
   @Override
   public Optional<UserDetails> findByEmail(String username) {
-    // Busca UserModel e faz o cast para UserDetails, já que UserModel implementa
-    // UserDetails
     return userRepository.findByEmail(username)
         .map(userModel -> (UserDetails) userModel);
-    // Alternativamente: .map(userModel -> userModel); se o Optional<UserModel> for
-    // aceito
   }
 
   @Override
   public Optional<UserDetails> loadUserDetailsById(Integer id) {
     return userRepository.findById(id)
         .map(userModel -> (UserDetails) userModel);
-    // Alternativamente: .map(userModel -> userModel);
   }
 }

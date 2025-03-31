@@ -1,5 +1,6 @@
 package com.projetointegrador.seumentor.user.model;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -7,6 +8,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -31,6 +33,8 @@ public class UserModel implements UserDetails{
     private Integer id;
     private String firstName;
     private String lastName;
+    private String profileImg;
+    @Column(unique = true)
     private String email;
     private String password;
     private String birthday;
@@ -41,6 +45,8 @@ public class UserModel implements UserDetails{
     private Float rating;
     @Enumerated(EnumType.STRING)
     private Role role;
+    private String passwordResetToken;
+    private LocalDateTime passwordResetTokenExpiry;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

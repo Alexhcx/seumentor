@@ -7,4 +7,8 @@ public interface UserCommand {
 
   UserRepresentation createUser(UserRegistrationRequest registrationRequest) throws Throwable;
 
+  void requestPasswordReset(String email) throws Exception;
+
+  void resetPassword(String token, String newPassword) throws Exception;
+
 }
