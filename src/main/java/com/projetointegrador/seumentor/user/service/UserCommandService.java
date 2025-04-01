@@ -11,7 +11,7 @@ import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 import com.projetointegrador.seumentor.user.repository.UserRepository;
 import com.projetointegrador.seumentor.user.model.Role;
-import com.projetointegrador.seumentor.user.model.UserModel;
+import com.projetointegrador.seumentor.user.model.User;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,6 @@ public class UserCommandService implements UserCommand {
 
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
-  // TODO Email service
   private final ApplicationEventPublisher eventPublisher;
   private static final long DEFAULT_TOKEN_EXPIRY_HOURS = 24;
   private static final Logger log = LoggerFactory.getLogger(UserCommandService.class);
@@ -50,17 +49,17 @@ public class UserCommandService implements UserCommand {
       throw new Exception("Role inválida: " + request.role());
     }
 
-    UserModel newUser = new UserModel();
+    User newUser = new User();
     newUser.setFirstName(request.firstName());
     newUser.setLastName(request.lastName());
     newUser.setEmail(request.email());
-    newUser.setPassword(passwordEncoder.encode(request.password())); // Hash password
+    newUser.setPassword(passwordEncoder.encode(request.password()));
     newUser.setRole(userRole);
 
     newUser.setPasswordResetToken(null);
     newUser.setPasswordResetTokenExpiry(null);
 
-    UserModel savedUser = userRepository.save(newUser);
+    User savedUser = userRepository.save(newUser);
     log.info("User created successfully with ID: {} and email: {}", savedUser.getId(), savedUser.getEmail());
 
     try {
@@ -81,7 +80,7 @@ public class UserCommandService implements UserCommand {
   @Transactional
   public void requestPasswordReset(String email) throws Exception {
     log.info("Password reset requested for email: {}", email);
-    UserModel user = userRepository.findByEmail(email)
+    User user = userRepository.findByEmail(email)
         .orElseThrow(() -> {
           log.warn("Password reset requested for non-existent email: {}", email);
           return new Exception("Usuário não encontrado com o email: " + email);
@@ -110,7 +109,7 @@ public class UserCommandService implements UserCommand {
       throw new Exception("Token de redefinição inválido ou ausente.");
     }
 
-    UserModel user = userRepository.findByPasswordResetToken(token)
+    User user = userRepository.findByPasswordResetToken(token)
         .orElseThrow(() -> {
           log.warn("Password reset failed: Invalid token provided - {}", token);
           return new Exception("Token de redefinição inválido ou expirado.");
@@ -136,7 +135,7 @@ public class UserCommandService implements UserCommand {
     // emailService.sendPasswordChangeConfirmationEmail(user.getEmail());
   }
 
-  private UserRepresentation mapToRepresentation(UserModel user) {
+  private UserRepresentation mapToRepresentation(User user) {
     return new UserRepresentation(user.getId(), user.getFirstName(), user.getLastName(), user.getEmail());
   }
 

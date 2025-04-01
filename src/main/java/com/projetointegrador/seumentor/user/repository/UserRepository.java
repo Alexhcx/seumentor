@@ -4,14 +4,14 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.projetointegrador.seumentor.user.model.UserModel;
+import com.projetointegrador.seumentor.user.model.User;
 
-public interface UserRepository extends JpaRepository<UserModel, Integer> {
+public interface UserRepository extends JpaRepository<User, Integer> {
 
-  Optional<UserModel> findByEmail(String email);
+  Optional<User> findByEmail(String email);
 
   boolean existsByEmail(String email);
 
-  Optional<UserModel> findByPasswordResetToken(String token);
+  Optional<User> findByPasswordResetToken(String token);
 
 }
