@@ -11,6 +11,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.projetointegrador.seumentor.common.model.BaseEntity;
+import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -37,7 +38,7 @@ import lombok.ToString;
 @EqualsAndHashCode(callSuper = false)
 @ToString(callSuper = true)
 @Table(name = "users")
-public class User extends BaseEntity implements UserDetails  {
+public class User extends BaseEntity implements UserDetails {
 
     @Id
     @GeneratedValue
@@ -53,11 +54,18 @@ public class User extends BaseEntity implements UserDetails  {
     private String state;
     private String country;
     private Boolean isMentor;
-    private Float rating;
     @Enumerated(EnumType.STRING)
     private Role role;
     private String passwordResetToken;
     private LocalDateTime passwordResetTokenExpiry;
+
+    @OneToMany(mappedBy = "mentor", fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Tutoring> mentoredSessions = new HashSet<>();
+
+    @OneToMany(mappedBy = "mentee", fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Tutoring> menteeSessions = new HashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default

@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.projetointegrador.seumentor.common.model.BaseEntity;
+import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 import com.projetointegrador.seumentor.user.model.UserDisciplinePreference;
 
 import jakarta.persistence.CascadeType;
@@ -38,21 +39,21 @@ public class Discipline extends BaseEntity implements Serializable {
   private Integer id;
   private String disciplineName;
   private String description;
+
+  @OneToMany(mappedBy = "discipline", fetch = FetchType.LAZY)
+  @Builder.Default
+  private Set<Tutoring> relatedTutorings = new HashSet<>();
+
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "course_area_id", nullable = false)
   @ToString.Exclude
   @EqualsAndHashCode.Exclude
   private CourseArea courseArea;
 
-  @OneToMany(
-        mappedBy = "discipline", 
-        cascade = CascadeType.ALL,
-        orphanRemoval = true,
-        fetch = FetchType.LAZY
-    )
-    @Builder.Default
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private Set<UserDisciplinePreference> userPreferences = new HashSet<>();
+  @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+  @Builder.Default
+  @ToString.Exclude
+  @EqualsAndHashCode.Exclude
+  private Set<UserDisciplinePreference> userPreferences = new HashSet<>();
 
 }

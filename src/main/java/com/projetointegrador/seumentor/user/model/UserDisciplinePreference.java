@@ -42,6 +42,6 @@ public class UserDisciplinePreference extends BaseEntity implements Serializable
 
   @Builder.Default
   @Column(nullable = false)
-  private Boolean isMentor = false;
+  private Boolean isDisciplineMentor = false;
 
 }
