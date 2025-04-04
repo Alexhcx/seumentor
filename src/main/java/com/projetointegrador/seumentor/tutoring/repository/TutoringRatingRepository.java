@@ -1,0 +1,9 @@
+package com.projetointegrador.seumentor.tutoring.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.projetointegrador.seumentor.tutoring.model.TutoringRating;
+
+public interface TutoringRatingRepository extends JpaRepository<TutoringRating, Integer> {
+
+}
