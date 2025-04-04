@@ -12,6 +12,5 @@ public record UserRepresentation(
     String country,
     String courseName,
     String semester,
-    String university,
-    Boolean isMentor
+    String university
 ) {}

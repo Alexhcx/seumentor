@@ -1,8 +1,7 @@
-package com.projetointegrador.seumentor.course.model;
+package com.projetointegrador.seumentor.chat.model;
 
 import java.io.Serializable;
 
-import com.projetointegrador.seumentor.chat.model.Conversations;
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 
 import jakarta.persistence.Column; 

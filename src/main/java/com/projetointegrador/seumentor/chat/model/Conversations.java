@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.projetointegrador.seumentor.common.model.BaseEntity;
-import com.projetointegrador.seumentor.course.model.Attachment;
 import com.projetointegrador.seumentor.user.model.User;
 
 import jakarta.persistence.CascadeType;

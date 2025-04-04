@@ -122,7 +122,6 @@ public class UserCommandService implements UserCommand {
     Optional.ofNullable(request.courseName()).ifPresent(user::setCourseName);
     Optional.ofNullable(request.semester()).ifPresent(user::setSemester);
     Optional.ofNullable(request.university()).ifPresent(user::setUniversity);
-    Optional.ofNullable(request.isMentor()).ifPresent(user::setIsMentor);
 
     User updatedUser = userRepository.save(user);
     log.info("User updated successfully with ID: {}", updatedUser.getId());
@@ -211,7 +210,6 @@ public class UserCommandService implements UserCommand {
       user.getCountry(),
       user.getCourseName(),
       user.getSemester(),
-      user.getUniversity(),
-      user.getIsMentor());
+      user.getUniversity());
   }
 }
