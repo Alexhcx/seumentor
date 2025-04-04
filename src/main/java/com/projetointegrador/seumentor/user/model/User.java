@@ -53,6 +53,9 @@ public class User extends BaseEntity implements UserDetails {
     private String city;
     private String state;
     private String country;
+    private String courseName;
+    private String semester;
+    private String university;
     private Boolean isMentor;
     @Enumerated(EnumType.STRING)
     private Role role;

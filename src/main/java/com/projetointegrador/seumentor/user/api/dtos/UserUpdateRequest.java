@@ -1,10 +1,8 @@
 package com.projetointegrador.seumentor.user.api.dtos;
 
-public record UserRepresentation(
-    Integer id,
+public record UserUpdateRequest(
     String firstName,
     String lastName,
-    String email,
     String profileImg,
     String birthday,
     String city,
