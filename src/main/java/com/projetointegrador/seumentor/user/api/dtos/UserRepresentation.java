@@ -1,7 +1,7 @@
 package com.projetointegrador.seumentor.user.api.dtos;
 
 public record UserRepresentation(
-    Integer id,
+    Long id,
     String firstName,
     String lastName,
     String email,
