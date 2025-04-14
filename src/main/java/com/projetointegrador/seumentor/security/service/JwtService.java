@@ -37,24 +37,23 @@ public class JwtService {
   }
 
   public String generateToken(
-        Map<String, Object> extraClaims,
-        UserDetails userDetails
-) {
+      Map<String, Object> extraClaims,
+      UserDetails userDetails) {
     long currentTimeMillis = System.currentTimeMillis();
     Date issuedAtDate = new Date(currentTimeMillis);
     long expirationMillis = currentTimeMillis + TimeUnit.DAYS.toMillis(1);
     Date expirationDate = new Date(expirationMillis);
 
     return Jwts.builder()
-            .claims().add(extraClaims).and()
-            .subject(userDetails.getUsername()) 
-            .issuedAt(issuedAtDate)             
-            .expiration(expirationDate)        
-            .signWith(getSigninKey())
-            .compact();
-}
+        .claims().add(extraClaims).and()
+        .subject(userDetails.getUsername())
+        .issuedAt(issuedAtDate)
+        .expiration(expirationDate)
+        .signWith(getSigninKey())
+        .compact();
+  }
 
-public Boolean isTokenValid(String token, UserDetails userDetails) {
+  public Boolean isTokenValid(String token, UserDetails userDetails) {
     final String username = extractUsername(token);
     return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
   }
