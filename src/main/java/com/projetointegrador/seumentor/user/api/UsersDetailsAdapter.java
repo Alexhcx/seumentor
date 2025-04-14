@@ -5,5 +5,5 @@ import java.util.Optional;
 
 public interface UsersDetailsAdapter {
     Optional<UserDetails> findByEmail(String username);
-    Optional<UserDetails> loadUserDetailsById(Integer id);
+    Optional<UserDetails> loadUserDetailsById(Long id);
 }
