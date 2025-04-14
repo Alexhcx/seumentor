@@ -20,6 +20,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -41,8 +42,8 @@ import lombok.ToString;
 public class User extends BaseEntity implements UserDetails {
 
     @Id
-    @GeneratedValue
-    private Integer id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     private String firstName;
     private String lastName;
     private String profileImg;
@@ -56,7 +57,6 @@ public class User extends BaseEntity implements UserDetails {
     private String courseName;
     private String semester;
     private String university;
-    private Boolean isMentor;
     @Enumerated(EnumType.STRING)
     private Role role;
     private String passwordResetToken;
@@ -69,6 +69,12 @@ public class User extends BaseEntity implements UserDetails {
     @OneToMany(mappedBy = "mentee", fetch = FetchType.LAZY)
     @Builder.Default
     private Set<Tutoring> menteeSessions = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @ToString.Exclude // Importante
+    @EqualsAndHashCode.Exclude // Importante
+    private Set<UserAvailability> availabilities = new HashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
