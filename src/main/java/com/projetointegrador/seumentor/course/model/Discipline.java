@@ -6,12 +6,14 @@ import java.util.Set;
 
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
+import com.projetointegrador.seumentor.user.model.UserAvailability;
 import com.projetointegrador.seumentor.user.model.UserDisciplinePreference;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -35,8 +37,8 @@ import lombok.ToString;
 public class Discipline extends BaseEntity implements Serializable {
 
   @Id
-  @GeneratedValue
-  private Integer id;
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
   private String disciplineName;
   private String description;
 
@@ -49,6 +51,12 @@ public class Discipline extends BaseEntity implements Serializable {
   @ToString.Exclude
   @EqualsAndHashCode.Exclude
   private CourseArea courseArea;
+
+  @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+  @Builder.Default
+  @ToString.Exclude 
+  @EqualsAndHashCode.Exclude 
+  private Set<UserAvailability> userAvailabilities = new HashSet<>();
 
   @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
   @Builder.Default

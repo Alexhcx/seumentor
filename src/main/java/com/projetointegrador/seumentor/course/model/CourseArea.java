@@ -11,6 +11,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
@@ -32,19 +33,16 @@ import lombok.ToString;
 public class CourseArea extends BaseEntity implements Serializable {
 
   @Id
-  @GeneratedValue
-  private Integer id;
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
   @Column(unique = true)
-  private String courseName;
-  @OneToMany(
-      mappedBy = "courseArea",
-      fetch = FetchType.LAZY,
-      cascade = CascadeType.ALL,
-      orphanRemoval = true 
-  )
+  private String course;
+  private String area;
+
+  @OneToMany(mappedBy = "courseArea", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
   @Builder.Default
   @ToString.Exclude
-  @EqualsAndHashCode.Exclude 
+  @EqualsAndHashCode.Exclude
   private Set<Discipline> disciplines = new HashSet<>();
 
 }
