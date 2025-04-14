@@ -1,4 +1,3 @@
-// src/main/java/com/projetointegrador/seumentor/user/service/UserCommandService.java
 package com.projetointegrador.seumentor.user.service;
 
 import org.slf4j.LoggerFactory;
@@ -6,17 +5,26 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.projetointegrador.seumentor.course.api.DisciplineQuery;
+import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.user.api.UserCommand;
+import com.projetointegrador.seumentor.user.api.dtos.SimpleDisciplineRepresentation;
+import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRepresentation;
+import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRequest;
 import com.projetointegrador.seumentor.user.api.dtos.UserRegistrationRequest;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserUpdateRequest;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
+import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
+import com.projetointegrador.seumentor.user.repository.UserAvailabilityRepository;
 import com.projetointegrador.seumentor.user.repository.UserRepository;
 import com.projetointegrador.seumentor.user.model.Role;
 import com.projetointegrador.seumentor.user.model.User;
+import com.projetointegrador.seumentor.user.model.UserAvailability;
 
-import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityNotFoundException;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -34,6 +42,12 @@ public class UserCommandService implements UserCommand {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final ApplicationEventPublisher eventPublisher;
+  private final UserAvailabilityRepository userAvailabilityRepository;
+  // --- REMOVER Repositório Direto ---
+  // private final DisciplineRepository disciplineRepository;
+  // --- INJETAR a Interface (Port) ---
+  private final DisciplineQuery disciplineQuery;
+
   private static final long DEFAULT_TOKEN_EXPIRY_HOURS = 24;
   private static final Logger log = LoggerFactory.getLogger(UserCommandService.class);
 
@@ -81,8 +95,8 @@ public class UserCommandService implements UserCommand {
     return mapToRepresentation(savedUser);
   }
 
-  @Transactional(Transactional.TxType.SUPPORTS)
-  public UserRepresentation getUserById(Integer userId) {
+  @Transactional
+  public UserRepresentation getUserById(Long userId) {
     log.debug("Attempting to find user with ID: {}", userId);
     User user = userRepository.findById(userId)
         .orElseThrow(() -> {
@@ -93,7 +107,7 @@ public class UserCommandService implements UserCommand {
     return mapToRepresentation(user);
   }
 
-  @Transactional(Transactional.TxType.SUPPORTS)
+  @Transactional
   public List<UserRepresentation> getAllUsers() {
     log.debug("Attempting to retrieve all users");
     List<User> users = userRepository.findAll();
@@ -104,7 +118,7 @@ public class UserCommandService implements UserCommand {
   }
 
   @Transactional
-  public UserRepresentation updateUser(Integer userId, UserUpdateRequest request) {
+  public UserRepresentation updateUser(Long userId, UserUpdateRequest request) {
     log.info("Attempting to update user with ID: {}", userId);
     User user = userRepository.findById(userId)
         .orElseThrow(() -> {
@@ -129,7 +143,7 @@ public class UserCommandService implements UserCommand {
   }
 
   @Transactional
-  public void deleteUser(Integer userId) {
+  public void deleteUser(Long userId) {
     log.info("Attempting to delete user with ID: {}", userId);
     if (!userRepository.existsById(userId)) {
       log.warn("Delete failed: User not found with ID: {}", userId);
@@ -197,19 +211,109 @@ public class UserCommandService implements UserCommand {
     log.info("TODO: Send password change confirmation email to user ID: {}", user.getId());
   }
 
+  @Transactional
+  public UserAvailabilityRepresentation addAvailability(Long userId, UserAvailabilityRequest request) {
+    log.info("Attempting to add availability for user ID: {} with discipline ID: {}", userId, request.disciplineId());
+
+    // Validações de horário, etc.
+    if (request.startTime().isAfter(request.endTime()) || request.startTime().equals(request.endTime())) {
+      throw new IllegalArgumentException("O horário de início deve ser anterior ao horário de fim.");
+    }
+
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new UserNotFoundException("Usuário não encontrado com ID: " + userId));
+
+    // --- VALIDAR e OBTER REFERÊNCIA via Interface ---
+    // 1. Validar existência usando a interface
+    if (!disciplineQuery.existsById(request.disciplineId())) {
+      log.warn("Add availability failed for user {}: Discipline not found with ID: {}", userId, request.disciplineId());
+      throw new EntityNotFoundException("Disciplina não encontrada com ID: " + request.disciplineId());
+    }
+
+    // 2. Obter a referência (proxy) usando a interface
+    Discipline disciplineRef = disciplineQuery.getReferenceById(request.disciplineId());
+    // --- FIM VALIDAÇÃO E OBTENÇÃO ---
+
+    UserAvailability newAvailability = UserAvailability.builder()
+        .user(user)
+        // --- SET a Referência da Disciplina ---
+        .discipline(disciplineRef) // Usa a referência obtida pela interface
+        .dayOfWeek(request.dayOfWeek())
+        .startTime(request.startTime())
+        .endTime(request.endTime())
+        .build();
+
+    UserAvailability savedAvailability = userAvailabilityRepository.save(newAvailability);
+    log.info("Availability added successfully with ID: {} for user ID: {}", savedAvailability.getId(), userId);
+
+    return mapToAvailabilityRepresentation(savedAvailability);
+  }
+
+  @Transactional
+  public void deleteAvailability(Long availabilityId) { 
+    log.info("Attempting to delete availability with ID: {}", availabilityId);
+
+    if (!userAvailabilityRepository.existsById(availabilityId)) {
+      log.warn("Delete availability failed: Availability not found with ID: {}", availabilityId);
+      throw new AvailabilityNotFoundException("Horário de disponibilidade não encontrado com ID: " + availabilityId);
+    }
+
+    // TODO: Verificação de segurança (dono da disponibilidade)
+
+    userAvailabilityRepository.deleteById(availabilityId);
+    log.info("Availability deleted successfully with ID: {}", availabilityId);
+  }
+
+  @Transactional(readOnly = true)
+  public List<UserAvailabilityRepresentation> getUserAvailabilities(Long userId) {
+    log.debug("Attempting to retrieve availabilities for user ID: {}", userId);
+
+    if (!userRepository.existsById(userId)) {
+      log.warn("Cannot retrieve availabilities: User not found with ID: {}", userId);
+      throw new UserNotFoundException("Usuário não encontrado com ID: " + userId);
+    }
+
+    List<UserAvailability> availabilities = userAvailabilityRepository.findByUserId(userId);
+    log.debug("Found {} availabilities for user ID: {}", availabilities.size(), userId);
+
+    return availabilities.stream()
+        .map(this::mapToAvailabilityRepresentation)
+        .collect(Collectors.toList());
+  }
+
   private UserRepresentation mapToRepresentation(User user) {
     return new UserRepresentation(
-      user.getId(), 
-      user.getFirstName(), 
-      user.getLastName(), 
-      user.getEmail(), 
-      user.getProfileImg(),
-      user.getBirthday(),
-      user.getCity(),
-      user.getState(),
-      user.getCountry(),
-      user.getCourseName(),
-      user.getSemester(),
-      user.getUniversity());
+        user.getId(),
+        user.getFirstName(),
+        user.getLastName(),
+        user.getEmail(),
+        user.getProfileImg(),
+        user.getBirthday(),
+        user.getCity(),
+        user.getState(),
+        user.getCountry(),
+        user.getCourseName(),
+        user.getSemester(),
+        user.getUniversity());
+  }
+
+  // Novo método para mapear UserAvailability para DTO
+  private UserAvailabilityRepresentation mapToAvailabilityRepresentation(UserAvailability availability) {
+    if (availability == null) {
+      return null;
+    }
+
+    Discipline discipline = availability.getDiscipline();
+
+    SimpleDisciplineRepresentation userApiDisciplineRep = new SimpleDisciplineRepresentation(
+        discipline != null ? discipline.getId() : null,
+        discipline != null ? discipline.getDisciplineName() : "[Disciplina inválida]");
+
+    return new UserAvailabilityRepresentation(
+        availability.getId(),
+        userApiDisciplineRep,
+        availability.getDayOfWeek(),
+        availability.getStartTime(),
+        availability.getEndTime());
   }
 }
