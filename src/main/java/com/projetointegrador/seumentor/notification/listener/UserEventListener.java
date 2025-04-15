@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import com.projetointegrador.seumentor.notification.service.EmailService;
+import com.projetointegrador.seumentor.user.api.events.PasswordResetRequestedEvent;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 
 @Component
@@ -27,6 +28,17 @@ public class UserEventListener {
       emailService.enviarEmailBoasVindas(event.email(), event.firstName());
     } catch (Exception e) {
       log.error("Failed to send welcome email for user email {}: {}", event.email(), e.getMessage(), e);
+    }
+  }
+
+  @EventListener
+  @Async
+  public void handlePasswordResetRequestedEvent(PasswordResetRequestedEvent event) {
+    log.info("Received PasswordResetRequestedEvent for email: {}", event.email());
+    try {
+      emailService.enviarEmailResetSenha(event.email(), event.firstName(), event.token());
+    } catch (Exception e) {
+      log.error("Failed to send password reset email for email {}: {}", event.email(), e.getMessage(), e);
     }
   }
 

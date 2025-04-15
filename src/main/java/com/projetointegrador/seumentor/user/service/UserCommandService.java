@@ -14,6 +14,7 @@ import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRequest;
 import com.projetointegrador.seumentor.user.api.dtos.UserRegistrationRequest;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserUpdateRequest;
+import com.projetointegrador.seumentor.user.api.events.PasswordResetRequestedEvent;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
@@ -43,9 +44,6 @@ public class UserCommandService implements UserCommand {
   private final PasswordEncoder passwordEncoder;
   private final ApplicationEventPublisher eventPublisher;
   private final UserAvailabilityRepository userAvailabilityRepository;
-  // --- REMOVER Repositório Direto ---
-  // private final DisciplineRepository disciplineRepository;
-  // --- INJETAR a Interface (Port) ---
   private final DisciplineQuery disciplineQuery;
 
   private static final long DEFAULT_TOKEN_EXPIRY_HOURS = 24;
@@ -159,8 +157,8 @@ public class UserCommandService implements UserCommand {
     log.info("Password reset requested for email: {}", email);
     User user = userRepository.findByEmail(email)
         .orElseThrow(() -> {
-          log.warn("Password reset requested for non-existent email: {}", email);
-          return new Exception("Usuário não encontrado com o email: " + email);
+          log.warn("Password reset requested for non-existent or existing email: {}", email);
+          return new Exception("Operação de reset solicitada.");
         });
 
     String token = UUID.randomUUID().toString();
@@ -171,9 +169,16 @@ public class UserCommandService implements UserCommand {
     userRepository.save(user);
     log.info("Password reset token generated for user ID: {}", user.getId());
 
-    // TODO: Email para resetar a senha, token para mudar.
-    // Example: emailService.sendPasswordResetEmail(user.getEmail(), token);
-    log.info("TODO: Implement email sending for password reset token {} to {}", token, email);
+    try {
+      PasswordResetRequestedEvent event = new PasswordResetRequestedEvent(
+          user.getEmail(),
+          user.getFirstName(),
+          token);
+      eventPublisher.publishEvent(event);
+      log.info("PasswordResetRequestedEvent published for email: {}", email);
+    } catch (Exception e) {
+      log.error("Failed to publish PasswordResetRequestedEvent for email {}: {}", email, e.getMessage(), e);
+    }
   }
 
   @Override
@@ -205,10 +210,6 @@ public class UserCommandService implements UserCommand {
     user.setPasswordResetTokenExpiry(null);
     userRepository.save(user);
     log.info("Password successfully reset for user ID: {}", user.getId());
-    // TODO: Implementar o serviço de email para retornar um aviso de mudança de
-    // senha
-    // emailService.sendPasswordChangeConfirmationEmail(user.getEmail());
-    log.info("TODO: Send password change confirmation email to user ID: {}", user.getId());
   }
 
   @Transactional
@@ -223,21 +224,16 @@ public class UserCommandService implements UserCommand {
     User user = userRepository.findById(userId)
         .orElseThrow(() -> new UserNotFoundException("Usuário não encontrado com ID: " + userId));
 
-    // --- VALIDAR e OBTER REFERÊNCIA via Interface ---
-    // 1. Validar existência usando a interface
     if (!disciplineQuery.existsById(request.disciplineId())) {
       log.warn("Add availability failed for user {}: Discipline not found with ID: {}", userId, request.disciplineId());
       throw new EntityNotFoundException("Disciplina não encontrada com ID: " + request.disciplineId());
     }
 
-    // 2. Obter a referência (proxy) usando a interface
     Discipline disciplineRef = disciplineQuery.getReferenceById(request.disciplineId());
-    // --- FIM VALIDAÇÃO E OBTENÇÃO ---
 
     UserAvailability newAvailability = UserAvailability.builder()
         .user(user)
-        // --- SET a Referência da Disciplina ---
-        .discipline(disciplineRef) // Usa a referência obtida pela interface
+        .discipline(disciplineRef)
         .dayOfWeek(request.dayOfWeek())
         .startTime(request.startTime())
         .endTime(request.endTime())
@@ -250,7 +246,7 @@ public class UserCommandService implements UserCommand {
   }
 
   @Transactional
-  public void deleteAvailability(Long availabilityId) { 
+  public void deleteAvailability(Long availabilityId) {
     log.info("Attempting to delete availability with ID: {}", availabilityId);
 
     if (!userAvailabilityRepository.existsById(availabilityId)) {
@@ -297,7 +293,6 @@ public class UserCommandService implements UserCommand {
         user.getUniversity());
   }
 
-  // Novo método para mapear UserAvailability para DTO
   private UserAvailabilityRepresentation mapToAvailabilityRepresentation(UserAvailability availability) {
     if (availability == null) {
       return null;
