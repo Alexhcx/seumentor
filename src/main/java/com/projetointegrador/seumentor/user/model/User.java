@@ -72,8 +72,8 @@ public class User extends BaseEntity implements UserDetails {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
-    @ToString.Exclude // Importante
-    @EqualsAndHashCode.Exclude // Importante
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Set<UserAvailability> availabilities = new HashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

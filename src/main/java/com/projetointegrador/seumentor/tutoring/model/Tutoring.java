@@ -1,4 +1,3 @@
-// src/main/java/com/projetointegrador/seumentor/tutoring/model/Tutoring.java
 package com.projetointegrador.seumentor.tutoring.model;
 
 import java.io.Serializable;
