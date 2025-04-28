@@ -1,41 +1,25 @@
 package com.projetointegrador.seumentor.tutoring.model;
 
-import java.io.Serializable;
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
-
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.user.model.User;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType; // Pode ser necessário importar
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany; // Importar OneToMany
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@EqualsAndHashCode(callSuper = false, exclude = { "mentor", "mentee", "discipline", "rating", "topics" })
-@ToString(callSuper = true, exclude = { "mentor", "mentee", "discipline", "rating", "topics" })
 @Table(name = "tutoring")
 public class Tutoring extends BaseEntity implements Serializable {
 
@@ -45,24 +29,27 @@ public class Tutoring extends BaseEntity implements Serializable {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "id_mentor", nullable = false)
+  @ToString.Exclude
+  @EqualsAndHashCode.Exclude
   private User mentor;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "id_mentee", nullable = false)
-  private User mentee;
-
-  @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "discipline_id", nullable = false)
+  @ToString.Exclude
+  @EqualsAndHashCode.Exclude
   private Discipline discipline;
 
   @Enumerated(EnumType.STRING)
   private ClassType classType;
 
   @Enumerated(EnumType.STRING)
-  private StatusTutoring status;
+  @Builder.Default
+  private StatusTutoring status = StatusTutoring.PENDENTE;
 
   private LocalDateTime startTime;
   private LocalDateTime endTime;
+
+  private LocalDate tutoringDate;
 
   private String local;
   private String linkVideo;
@@ -72,11 +59,29 @@ public class Tutoring extends BaseEntity implements Serializable {
   @Builder.Default
   private Boolean isChatEnable = false;
 
-  @OneToOne(mappedBy = "tutoring", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+  @OneToOne(mappedBy = "tutoring", cascade = CascadeType.ALL, orphanRemoval = true)
+  @ToString.Exclude
+  @EqualsAndHashCode.Exclude
   private TutoringRating rating;
 
   @OneToMany(mappedBy = "tutoring", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
   @Builder.Default
-  private Set<TutoringTopics> topics = new HashSet<>();
+  @ToString.Exclude
+  private Set<TutoringParticipants> topics = new HashSet<>();
 
+  @Override
+  public final boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null) return false;
+    Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+    Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+    if (thisEffectiveClass != oEffectiveClass) return false;
+    Tutoring tutoring = (Tutoring) o;
+    return getId() != null && Objects.equals(getId(), tutoring.getId());
+  }
+
+  @Override
+  public final int hashCode() {
+    return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+  }
 }
