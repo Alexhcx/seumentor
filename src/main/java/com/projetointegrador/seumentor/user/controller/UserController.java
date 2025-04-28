@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody; // Import necessário para @RequestBody em @Operation
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -35,7 +35,7 @@ import java.util.List;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @Tag(name = "Usuários", description = "Endpoints para gerenciamento de usuários")
-@SecurityRequirement(name = "bearerAuth") // Aplica segurança a todos os endpoints neste controller
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
   private final UserCommandService userCommandService;
@@ -100,21 +100,18 @@ public class UserController {
           @Parameter(description = "ID do usuário a ser atualizado", required = true)
           @PathVariable Long id,
           @RequestBody(description = "Dados do usuário para atualização", required = true,
-                  content = @Content(schema = @Schema(implementation = UserUpdateRequest.class))) // Documenta o corpo da requisição
-          @org.springframework.web.bind.annotation.RequestBody UserUpdateRequest request) { // Mantém a anotação original do Spring
+                  content = @Content(schema = @Schema(implementation = UserUpdateRequest.class)))
+          @org.springframework.web.bind.annotation.RequestBody UserUpdateRequest request) {
     log.info("Received request to update user with ID: {}", id);
     try {
       UserRepresentation updatedUser = userCommandService.updateUser(id, request);
       return ResponseEntity.ok(updatedUser);
     } catch (UserNotFoundException e) {
       log.warn("Update failed. User not found for ID {}: {}", id, e.getMessage());
-      // Alterado para lançar exceção para o handler global ou retornar 404 diretamente
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-      // return ResponseEntity.notFound().build(); // Opção anterior
-    } catch (Exception e) { // Captura outras exceções que podem indicar um Bad Request
+    } catch (Exception e) {
       log.error("Error updating user with ID {}: {}", id, e.getMessage(), e);
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Erro ao processar a atualização: " + e.getMessage(), e);
-      // return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); // Opção anterior
     }
   }
 
@@ -137,15 +134,11 @@ public class UserController {
     } catch (UserNotFoundException e) {
       log.warn("Delete failed. User not found for ID {}: {}", id, e.getMessage());
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-      // return ResponseEntity.notFound().build();
     } catch (Exception e) {
       log.error("Error deleting user with ID {}: {}", id, e.getMessage(), e);
       throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao excluir usuário", e);
-      // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
   }
-
-  // --- Endpoints de Disponibilidade ---
 
   @PostMapping("/{userId}/availabilities")
   @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
@@ -172,10 +165,10 @@ public class UserController {
     try {
       UserAvailabilityRepresentation createdAvailability = userCommandService.addAvailability(userId, request);
       return ResponseEntity.status(HttpStatus.CREATED).body(createdAvailability);
-    } catch (UserNotFoundException | EntityNotFoundException e) { // EntityNotFound pode ser da Disciplina
+    } catch (UserNotFoundException | EntityNotFoundException e) {
       log.warn("Add availability failed for user {}: {}", userId, e.getMessage());
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-    } catch (IllegalArgumentException e) { // Erros de validação de negócio (ex: horário inválido)
+    } catch (IllegalArgumentException e) {
       log.warn("Add availability failed for user {}: {}", userId, e.getMessage());
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
     } catch (Exception e) {
@@ -207,11 +200,9 @@ public class UserController {
     } catch (UserNotFoundException e) {
       log.warn("Get availabilities failed: User not found for ID {}: {}", userId, e.getMessage());
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-      // return ResponseEntity.notFound().build();
     } catch (Exception e) {
       log.error("Error retrieving availabilities for user {}: {}", userId, e.getMessage(), e);
       throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar disponibilidades", e);
-      // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
   }
 
@@ -227,22 +218,19 @@ public class UserController {
   })
   public ResponseEntity<Void> deleteAvailability(
           @Parameter(description = "ID do usuário proprietário da disponibilidade", required = true)
-          @PathVariable Long userId, // Mantido para PreAuthorize, mas não usado diretamente no service
+          @PathVariable Long userId,
           @Parameter(description = "ID da disponibilidade a ser excluída", required = true)
           @PathVariable Long availabilityId) {
     log.info("Request to delete availability with ID: {} for user ID: {} (Authorized based on userId)", availabilityId, userId);
     try {
-      // O service agora só precisa do availabilityId, a autorização foi feita antes
       userCommandService.deleteAvailability(availabilityId);
       return ResponseEntity.noContent().build();
     } catch (AvailabilityNotFoundException e) {
       log.warn("Delete availability failed: {}", e.getMessage());
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-      // return ResponseEntity.notFound().build();
     } catch (Exception e) {
       log.error("Error deleting availability with ID {}: {}", availabilityId, e.getMessage(), e);
       throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao excluir disponibilidade", e);
-      // return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
   }
 

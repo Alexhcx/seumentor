@@ -4,6 +4,16 @@ import com.projetointegrador.seumentor.course.api.dto.CourseAreaRepresentation;
 import com.projetointegrador.seumentor.course.api.dto.CourseAreaRequest;
 import com.projetointegrador.seumentor.course.exception.CourseAreaNotFoundException;
 import com.projetointegrador.seumentor.course.service.CourseAreaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -19,14 +29,27 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/course-areas")
 @RequiredArgsConstructor
+@Tag(name = "Áreas de Curso", description = "Endpoints para gerenciamento de áreas de curso e suas associações")
+@SecurityRequirement(name = "bearerAuth")
 public class CourseAreaController {
 
     private final CourseAreaService courseAreaService;
     private static final Logger log = LoggerFactory.getLogger(CourseAreaController.class);
 
     @PostMapping
+    @Operation(summary = "Cria uma nova Área de Curso", description = "Registra uma nova combinação de curso e área.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Área de curso criada com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CourseAreaRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida (ex: dados faltando, combinação já existe)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<CourseAreaRepresentation> createCourseArea(
-            @Valid @RequestBody CourseAreaRequest request) {
+            @RequestBody(description = "Dados da nova área de curso", required = true,
+                    content = @Content(schema = @Schema(implementation = CourseAreaRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody CourseAreaRequest request) {
         log.info("Received request to create CourseArea: {}", request);
         try {
             CourseAreaRepresentation createdCourseArea = courseAreaService.createCourseArea(request);
@@ -41,6 +64,15 @@ public class CourseAreaController {
     }
 
     @GetMapping
+    @Operation(summary = "Lista todas as Áreas de Curso", description = "Retorna uma lista de todas as áreas de curso cadastradas.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = CourseAreaRepresentation.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<List<CourseAreaRepresentation>> getAllCourseAreas() {
         log.info("Received request to get all CourseAreas");
         try {
@@ -53,7 +85,18 @@ public class CourseAreaController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CourseAreaRepresentation> getCourseAreaById(@PathVariable Long id) {
+    @Operation(summary = "Busca Área de Curso por ID", description = "Retorna os detalhes de uma área de curso específica.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Área de curso encontrada",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CourseAreaRepresentation.class))),
+            @ApiResponse(responseCode = "404", description = "Área de curso não encontrada", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<CourseAreaRepresentation> getCourseAreaById(
+            @Parameter(description = "ID da área de curso a ser buscada", required = true)
+            @PathVariable Long id) {
         log.info("Received request to get CourseArea by ID: {}", id);
         try {
             CourseAreaRepresentation courseArea = courseAreaService.getCourseAreaById(id);
@@ -63,15 +106,27 @@ public class CourseAreaController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
         } catch (Exception e) {
             log.error("Error retrieving CourseArea with ID {}: {}", id, e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar área de curso por ID",
-                    e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar área de curso por ID", e);
         }
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Atualiza uma Área de Curso", description = "Atualiza os dados de uma área de curso existente.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Área de curso atualizada com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CourseAreaRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida (ex: combinação já existe)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Área de curso não encontrada", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<CourseAreaRepresentation> updateCourseArea(
+            @Parameter(description = "ID da área de curso a ser atualizada", required = true)
             @PathVariable Long id,
-            @Valid @RequestBody CourseAreaRequest request) {
+            @RequestBody(description = "Novos dados para a área de curso", required = true,
+                    content = @Content(schema = @Schema(implementation = CourseAreaRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody CourseAreaRequest request) {
         log.info("Received request to update CourseArea with ID: {}", id);
         try {
             CourseAreaRepresentation updatedCourseArea = courseAreaService.updateCourseArea(id, request);
@@ -89,7 +144,18 @@ public class CourseAreaController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCourseArea(@PathVariable Long id) {
+    @Operation(summary = "Exclui uma Área de Curso", description = "Exclui uma área de curso se ela não possuir disciplinas associadas.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Área de curso excluída com sucesso", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Área de curso não encontrada", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Conflito - Área de curso possui disciplinas associadas", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<Void> deleteCourseArea(
+            @Parameter(description = "ID da área de curso a ser excluída", required = true)
+            @PathVariable Long id) {
         log.info("Received request to delete CourseArea with ID: {}", id);
         try {
             courseAreaService.deleteCourseArea(id);

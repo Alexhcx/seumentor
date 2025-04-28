@@ -9,6 +9,17 @@ import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -26,6 +37,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/tutoring")
 @RequiredArgsConstructor
+@Tag(name = "Mentorias (Tutoring)", description = "Endpoints para agendamento, gerenciamento e avaliação de mentorias")
+@SecurityRequirement(name = "bearerAuth")
 public class TutoringController {
 
     private final TutoringCommand tutoringCommandService;
@@ -34,8 +47,20 @@ public class TutoringController {
 
     @PostMapping("/schedule")
     @PreAuthorize("#request.menteeId() == authentication.principal.id or hasAuthority('ADMIN')")
+    @Operation(summary = "Agenda uma nova mentoria", description = "Cria uma solicitação de mentoria entre um mentor e um mentorado para uma disciplina específica. Requer que o solicitante seja o mentorado ou um ADMIN.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Mentoria agendada com sucesso (status inicial PENDENTE ou AGENDADA, dependendo da lógica)",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida (ex: horário inválido, dados faltando)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Usuário (Mentor/Mentorado) ou Disciplina não encontrado(a)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário não é o mentorado nem ADMIN)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<TutoringRepresentation> scheduleTutoring(
-            @Valid @RequestBody ScheduleTutoringRequest request) {
+            @RequestBody(description = "Dados para o agendamento da mentoria", required = true,
+                    content = @Content(schema = @Schema(implementation = ScheduleTutoringRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody ScheduleTutoringRequest request) {
 
         log.info("Received request to schedule tutoring: {}", request);
         try {
@@ -50,14 +75,24 @@ public class TutoringController {
         }
         catch (Exception e) {
             log.error("Error scheduling tutoring: {}", e.getMessage(), e);
-            // Evitar expor detalhes internos no erro genérico
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao agendar monitoria.", e);
         }
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('ADMIN') or @tutoringSecurityService.canAccessTutoring(authentication, #id)")
-    public ResponseEntity<TutoringRepresentation> getTutoringById(@PathVariable Long id) {
+    @Operation(summary = "Busca mentoria por ID", description = "Retorna os detalhes de uma mentoria específica. Requer que o usuário seja participante ou ADMIN.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Mentoria encontrada",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
+            @ApiResponse(responseCode = "404", description = "Mentoria não encontrada", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<TutoringRepresentation> getTutoringById(
+            @Parameter(description = "ID da mentoria a ser buscada", required = true, in = ParameterIn.PATH)
+            @PathVariable Long id) {
         log.info("Received request to get Tutoring by ID: {}", id);
         return tutoringQueryService.findTutoringById(id)
                 .map(ResponseEntity::ok)
@@ -69,23 +104,47 @@ public class TutoringController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Lista mentorias com filtros", description = "Retorna uma lista de mentorias, permitindo filtrar por mentor, disciplina e status.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de mentorias retornada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = TutoringRepresentation.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<List<TutoringRepresentation>> getAllTutorings(
+            @Parameter(description = "ID do Mentor para filtrar (opcional)", required = false, in = ParameterIn.QUERY, example = "10")
             @RequestParam(required = false) Long mentorId,
+            @Parameter(description = "ID da Disciplina para filtrar (opcional)", required = false, in = ParameterIn.QUERY, example = "25")
             @RequestParam(required = false) Long disciplineId,
+            @Parameter(description = "Status da Mentoria para filtrar (opcional)", required = false, in = ParameterIn.QUERY, schema = @Schema(implementation = StatusTutoring.class))
             @RequestParam(required = false) StatusTutoring status
     ) {
         log.info("Received request to get Tutorings with filters - MentorId: {}, DisciplineId: {}, Status: {}",
                 mentorId, disciplineId, status);
-
         List<TutoringRepresentation> tutorings = tutoringQueryService.findFilteredTutorings(mentorId, disciplineId, status);
         return ResponseEntity.ok(tutorings);
     }
 
     @PutMapping("/{id}/confirm")
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Confirma e atualiza detalhes de uma mentoria agendada", description = "Permite ao mentor confirmar uma mentoria (status AGENDADA) adicionando local/link, número máximo de participantes e se o chat está ativo. Requer autenticação.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Mentoria confirmada e atualizada com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Operação inválida (ex: status não é AGENDADA, dados faltando para tipo online/presencial)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Mentoria não encontrada", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário não é o mentor)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<TutoringRepresentation> confirmAndUpdatetutoring(
+            @Parameter(description = "ID da mentoria a ser confirmada", required = true, in = ParameterIn.PATH)
             @PathVariable Long id,
-            @Valid @RequestBody ConfirmTutoringRequest request,
+            @RequestBody(description = "Detalhes para confirmação da mentoria", required = true,
+                    content = @Content(schema = @Schema(implementation = ConfirmTutoringRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody ConfirmTutoringRequest request,
+            @Parameter(hidden = true)
             Authentication authentication
     ) {
         log.info("Received request to confirm and update tutoring ID: {}", id);
@@ -109,9 +168,23 @@ public class TutoringController {
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Atualiza o status de uma mentoria", description = "Altera o status de uma mentoria (ex: para EM_ANDAMENTO, CONCLUIDA, CANCELADA). Requer autenticação e permissões adequadas (geralmente mentor ou ADMIN).")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Status da mentoria atualizado com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Operação inválida (ex: transição de status não permitida)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Mentoria não encontrada", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário sem permissão para alterar status)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<TutoringRepresentation> updateTutoringStatus(
+            @Parameter(description = "ID da mentoria cujo status será atualizado", required = true, in = ParameterIn.PATH)
             @PathVariable Long id,
-            @Valid @RequestBody UpdateTutoringStatusRequest request,
+            @RequestBody(description = "Novo status para a mentoria", required = true,
+                    content = @Content(schema = @Schema(implementation = UpdateTutoringStatusRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody UpdateTutoringStatusRequest request,
+            @Parameter(hidden = true)
             Authentication authentication
     ) {
         log.info("Received request to update status for tutoring ID: {}", id);
@@ -134,9 +207,23 @@ public class TutoringController {
     }
     @PostMapping("/{tutoringId}/participants")
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Adiciona um participante a uma mentoria", description = "Inscreve um usuário como participante em uma mentoria agendada. Requer autenticação.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Participante adicionado com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Operação inválida (ex: mentoria não está AGENDADA, mentoria lotada, usuário já participa)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Mentoria ou Usuário não encontrado(a)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (regra de negócio impede inscrição)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<TutoringRepresentation> addParticipant(
+            @Parameter(description = "ID da mentoria à qual adicionar o participante", required = true, in = ParameterIn.PATH)
             @PathVariable Long tutoringId,
-            @Valid @RequestBody AddParticipantRequest request,
+            @RequestBody(description = "ID do usuário a ser adicionado e o tópico de interesse", required = true,
+                    content = @Content(schema = @Schema(implementation = AddParticipantRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody AddParticipantRequest request,
+            @Parameter(hidden = true)
             Authentication authentication
     ) {
         log.info("Received request to add participant to tutoring ID: {}", tutoringId);
@@ -160,6 +247,15 @@ public class TutoringController {
 
     @GetMapping("/ratings")
     @PreAuthorize("hasAuthority('ADMIN')")
+    @Operation(summary = "Lista todas as avaliações de mentorias (ADMIN)", description = "Retorna uma lista de todas as avaliações registradas. Requer permissão de ADMIN.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de avaliações retornada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = TutoringRatingRepresentation.class)))),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário não é ADMIN)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<List<TutoringRatingRepresentation>> getAllTutoringRatings() {
         log.info("Received request to get all tutoring ratings (ADMIN)");
         try {
@@ -172,9 +268,23 @@ public class TutoringController {
     }
     @PostMapping("/{tutoringId}/ratings")
     @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Adiciona uma avaliação a uma mentoria concluída", description = "Permite que um participante avalie uma mentoria após sua conclusão. Requer autenticação.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Avaliação adicionada com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRatingRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Operação inválida (ex: mentoria não está CONCLUIDA, mentoria já avaliada)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Mentoria ou Usuário (avaliador) não encontrado(a)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário não participou da mentoria)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
     public ResponseEntity<TutoringRatingRepresentation> addTutoringRating(
+            @Parameter(description = "ID da mentoria a ser avaliada", required = true, in = ParameterIn.PATH)
             @PathVariable Long tutoringId,
-            @Valid @RequestBody TutoringRatingRequest request,
+            @RequestBody(description = "Dados da avaliação (nota e comentário)", required = true,
+                    content = @Content(schema = @Schema(implementation = TutoringRatingRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody TutoringRatingRequest request,
+            @Parameter(hidden = true)
             Authentication authentication) {
 
         log.info("Received request to add rating for tutoring ID: {}", tutoringId);
@@ -184,10 +294,10 @@ public class TutoringController {
         } catch (TutoringNotFoundException | UserNotFoundException e) {
             log.warn("Add rating failed for tutoring ID {}: {}", tutoringId, e.getMessage());
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-        } catch (TutoringOperationException e) { // Catches invalid status, already rated, etc.
+        } catch (TutoringOperationException e) {
             log.warn("Add rating failed for tutoring ID {}: {}", tutoringId, e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        } catch (AccessDeniedException e) { // Catches if user is not a participant
+        } catch (AccessDeniedException e) {
             log.warn("Add rating failed for tutoring ID {}: {}", tutoringId, e.getMessage());
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage(), e);
         } catch (Exception e) {
@@ -198,14 +308,24 @@ public class TutoringController {
 
     @DeleteMapping("/ratings/{ratingId}")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<Void> deleteTutoringRating(@PathVariable Long ratingId) {
+    @Operation(summary = "Exclui uma avaliação de mentoria (ADMIN)", description = "Remove uma avaliação específica pelo seu ID. Requer permissão de ADMIN.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Avaliação excluída com sucesso", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Avaliação não encontrada", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário não é ADMIN)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<Void> deleteTutoringRating(
+            @Parameter(description = "ID da avaliação a ser excluída", required = true, in = ParameterIn.PATH)
+            @PathVariable Long ratingId) {
         log.info("Received request from ADMIN to delete tutoring rating with ID: {}", ratingId);
         try {
             tutoringCommandService.deleteTutoringRating(ratingId);
             return ResponseEntity.noContent().build();
         } catch (TutoringOperationException e) {
             log.warn("Delete rating failed for ID {}: {}", ratingId, e.getMessage());
-            if (e.getMessage().contains("não encontrada")) {
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("não encontrada")) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
