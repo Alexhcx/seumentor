@@ -18,11 +18,11 @@ import com.projetointegrador.seumentor.user.api.events.PasswordResetRequestedEve
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
-import com.projetointegrador.seumentor.user.repository.UserAvailabilityRepository;
+import com.projetointegrador.seumentor.user.repository.MentorAvailabilityRepository;
 import com.projetointegrador.seumentor.user.repository.UserRepository;
 import com.projetointegrador.seumentor.user.model.Role;
 import com.projetointegrador.seumentor.user.model.User;
-import com.projetointegrador.seumentor.user.model.UserAvailability;
+import com.projetointegrador.seumentor.user.model.MentorAvailability;
 
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +43,7 @@ public class UserCommandService implements UserCommand {
   private final UserRepository userRepository;
   private final PasswordEncoder passwordEncoder;
   private final ApplicationEventPublisher eventPublisher;
-  private final UserAvailabilityRepository userAvailabilityRepository;
+  private final MentorAvailabilityRepository mentorAvailabilityRepository;
   private final DisciplineQuery disciplineQuery;
 
   private static final long DEFAULT_TOKEN_EXPIRY_HOURS = 24;
@@ -231,7 +231,7 @@ public class UserCommandService implements UserCommand {
 
     Discipline disciplineRef = disciplineQuery.getReferenceById(request.disciplineId());
 
-    UserAvailability newAvailability = UserAvailability.builder()
+    MentorAvailability newAvailability = MentorAvailability.builder()
         .user(user)
         .discipline(disciplineRef)
         .dayOfWeek(request.dayOfWeek())
@@ -239,7 +239,7 @@ public class UserCommandService implements UserCommand {
         .endTime(request.endTime())
         .build();
 
-    UserAvailability savedAvailability = userAvailabilityRepository.save(newAvailability);
+    MentorAvailability savedAvailability = mentorAvailabilityRepository.save(newAvailability);
     log.info("Availability added successfully with ID: {} for user ID: {}", savedAvailability.getId(), userId);
 
     return mapToAvailabilityRepresentation(savedAvailability);
@@ -249,14 +249,14 @@ public class UserCommandService implements UserCommand {
   public void deleteAvailability(Long availabilityId) {
     log.info("Attempting to delete availability with ID: {}", availabilityId);
 
-    if (!userAvailabilityRepository.existsById(availabilityId)) {
+    if (!mentorAvailabilityRepository.existsById(availabilityId)) {
       log.warn("Delete availability failed: Availability not found with ID: {}", availabilityId);
       throw new AvailabilityNotFoundException("Horário de disponibilidade não encontrado com ID: " + availabilityId);
     }
 
     // TODO: Verificação de segurança (dono da disponibilidade)
 
-    userAvailabilityRepository.deleteById(availabilityId);
+    mentorAvailabilityRepository.deleteById(availabilityId);
     log.info("Availability deleted successfully with ID: {}", availabilityId);
   }
 
@@ -269,14 +269,14 @@ public class UserCommandService implements UserCommand {
       throw new UserNotFoundException("Usuário não encontrado com ID: " + userId);
     }
 
-    List<UserAvailability> availabilities = userAvailabilityRepository.findByUserId(userId);
+    List<MentorAvailability> availabilities = mentorAvailabilityRepository.findByUserId(userId);
     log.debug("Found {} availabilities for user ID: {}", availabilities.size(), userId);
 
     return availabilities.stream()
         .map(this::mapToAvailabilityRepresentation)
         .collect(Collectors.toList());
   }
-
+ //TODO: Mover para userQueryAdapter
   private UserRepresentation mapToRepresentation(User user) {
     return new UserRepresentation(
         user.getId(),
@@ -293,7 +293,8 @@ public class UserCommandService implements UserCommand {
         user.getUniversity());
   }
 
-  private UserAvailabilityRepresentation mapToAvailabilityRepresentation(UserAvailability availability) {
+  //TODO: Mover para userQueryAdapter
+  private UserAvailabilityRepresentation mapToAvailabilityRepresentation(MentorAvailability availability) {
     if (availability == null) {
       return null;
     }
