@@ -1,9 +1,6 @@
 package com.projetointegrador.seumentor.user.controller;
 
-import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRepresentation;
-import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRequest;
-import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
-import com.projetointegrador.seumentor.user.api.dtos.UserUpdateRequest;
+import com.projetointegrador.seumentor.user.api.dtos.*;
 import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import com.projetointegrador.seumentor.user.service.UserCommandService;
@@ -140,9 +137,9 @@ public class UserController {
     }
   }
 
-  @PostMapping("/{userId}/availabilities")
+  @PostMapping("/{userId}/mentor")
   @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
-  @Operation(summary = "Adiciona um horário de disponibilidade para um usuário", description = "Registra um novo período em que um usuário (mentor) está disponível para uma disciplina específica. Requer autenticação e autorização (próprio usuário ou ADMIN).")
+  @Operation(summary = "Se torna mentor de uma disciplina e adiciona um horário de disponibilidade para mentoria", description = "Registra um novo período em que um usuário (mentor) está disponível para uma disciplina específica. Requer autenticação e autorização (próprio usuário ou ADMIN).")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "201", description = "Disponibilidade criada com sucesso",
                   content = { @Content(mediaType = "application/json",
@@ -177,7 +174,7 @@ public class UserController {
     }
   }
 
-  @GetMapping("/{userId}/availabilities")
+  @GetMapping("/{userId}/mentor_availability")
   @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
   @Operation(summary = "Lista as disponibilidades de um usuário", description = "Retorna todos os horários de disponibilidade registrados para um usuário específico. Requer autenticação e autorização.")
   @ApiResponses(value = {
@@ -231,6 +228,54 @@ public class UserController {
     } catch (Exception e) {
       log.error("Error deleting availability with ID {}: {}", availabilityId, e.getMessage(), e);
       throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao excluir disponibilidade", e);
+    }
+  }
+
+  @GetMapping("/mentors/{id}/profile")
+  @Operation(summary = "Busca o perfil detalhado de um mentor pelo ID", description = "Retorna ID, nome, sobrenome, curso, e a lista de disciplinas com seus respectivos horários de disponibilidade do mentor.")
+  @ApiResponses(value = {
+          @ApiResponse(responseCode = "200", description = "Perfil do mentor encontrado",
+                  content = { @Content(mediaType = "application/json",
+                          schema = @Schema(implementation = MentorProfileRepresentation.class)) }),
+          @ApiResponse(responseCode = "404", description = "Mentor não encontrado", content = @Content),
+          @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+          @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+          @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+  })
+  public ResponseEntity<MentorProfileRepresentation> getMentorProfileById(
+          @Parameter(description = "ID do mentor a ser buscado", required = true)
+          @PathVariable Long id) {
+    log.info("Received request to get mentor profile by ID: {}", id);
+    try {
+      MentorProfileRepresentation mentorProfile = userCommandService.findMentorProfileById(id);
+      return ResponseEntity.ok(mentorProfile);
+    } catch (UserNotFoundException e) {
+      log.warn("Mentor profile not found for ID {}: {}", id, e.getMessage());
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+    } catch (Exception e) {
+      log.error("Error fetching mentor profile with ID {}: {}", id, e.getMessage(), e);
+      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao buscar perfil do mentor", e);
+    }
+  }
+
+  @GetMapping("/mentors/profiles")
+  @Operation(summary = "Lista os perfis detalhados de todos os mentores", description = "Retorna uma lista com ID, nome, sobrenome, curso, e a lista de disciplinas com seus respectivos horários de disponibilidade para cada mentor.")
+  @ApiResponses(value = {
+          @ApiResponse(responseCode = "200", description = "Perfis dos mentores listados com sucesso",
+                  content = { @Content(mediaType = "application/json",
+                          array = @ArraySchema(schema = @Schema(implementation = MentorProfileRepresentation.class))) }),
+          @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+          @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+          @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+  })
+  public ResponseEntity<List<MentorProfileRepresentation>> getAllMentorProfiles() {
+    log.info("Received request to get all mentor profiles");
+    try {
+      List<MentorProfileRepresentation> mentorProfiles = userCommandService.findAllMentorProfiles();
+      return ResponseEntity.ok(mentorProfiles);
+    } catch (Exception e) {
+      log.error("Error fetching all mentor profiles: {}", e.getMessage(), e);
+      throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao buscar perfis dos mentores", e);
     }
   }
 

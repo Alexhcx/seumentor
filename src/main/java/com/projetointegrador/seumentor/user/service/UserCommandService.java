@@ -1,5 +1,6 @@
 package com.projetointegrador.seumentor.user.service;
 
+import com.projetointegrador.seumentor.user.api.dtos.*;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -8,12 +9,6 @@ import org.springframework.stereotype.Service;
 import com.projetointegrador.seumentor.course.api.DisciplineQuery;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.user.api.UserCommand;
-import com.projetointegrador.seumentor.user.api.dtos.SimpleDisciplineRepresentation;
-import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRepresentation;
-import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRequest;
-import com.projetointegrador.seumentor.user.api.dtos.UserRegistrationRequest;
-import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
-import com.projetointegrador.seumentor.user.api.dtos.UserUpdateRequest;
 import com.projetointegrador.seumentor.user.api.events.PasswordResetRequestedEvent;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;
@@ -29,9 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -276,6 +269,98 @@ public class UserCommandService implements UserCommand {
         .map(this::mapToAvailabilityRepresentation)
         .collect(Collectors.toList());
   }
+
+  @Transactional(readOnly = true)
+  public MentorProfileRepresentation findMentorProfileById(Long mentorId) {
+    log.debug("Attempting to find mentor profile for ID: {}", mentorId);
+    User user = userRepository.findById(mentorId)
+            .orElseThrow(() -> {
+              log.warn("Mentor profile not found: User not found with ID: {}", mentorId);
+              return new UserNotFoundException("Mentor não encontrado com ID: " + mentorId);
+            });
+
+    List<MentorAvailability> userAvailabilities = mentorAvailabilityRepository.findByUserId(mentorId);
+    log.debug("Found {} availabilities for mentor ID: {}", userAvailabilities.size(), mentorId);
+
+    Map<String, List<AvailabilitySlot>> availabilitiesByDiscipline = userAvailabilities.stream()
+            .filter(avail -> avail.getDiscipline() != null)
+            .collect(Collectors.groupingBy(
+                    avail -> avail.getDiscipline().getDisciplineName(),
+                    Collectors.mapping(
+                            avail -> new AvailabilitySlot(
+                                    avail.getDayOfWeek(),
+                                    avail.getStartTime(),
+                                    avail.getEndTime()
+                            ),
+                            Collectors.toList()
+                    )
+            ));
+
+    List<MentorDisciplineAvailabilityRepresentation> disciplineAvailabilities = availabilitiesByDiscipline.entrySet().stream()
+            .map(entry -> new MentorDisciplineAvailabilityRepresentation(entry.getKey(), entry.getValue()))
+            .collect(Collectors.toList());
+
+    log.info("Successfully mapped mentor profile for ID: {}", mentorId);
+    return new MentorProfileRepresentation(
+            user.getId(),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getCourseName(),
+            disciplineAvailabilities
+    );
+  }
+
+  @Transactional(readOnly = true)
+  public List<MentorProfileRepresentation> findAllMentorProfiles() {
+    log.debug("Attempting to find all mentor profiles.");
+
+    List<MentorAvailability> allAvailabilities = mentorAvailabilityRepository.findAll();
+    log.debug("Fetched {} total availabilities.", allAvailabilities.size());
+
+    Map<Long, List<MentorAvailability>> availabilitiesByUser = allAvailabilities.stream()
+            .filter(avail -> avail.getUser() != null)
+            .collect(Collectors.groupingBy(avail -> avail.getUser().getId()));
+    log.debug("Grouped availabilities for {} unique mentors.", availabilitiesByUser.size());
+
+    List<Long> mentorIds = new ArrayList<>(availabilitiesByUser.keySet());
+
+    List<User> mentors = userRepository.findAllById(mentorIds);
+    log.debug("Fetched details for {} mentors.", mentors.size());
+
+    List<MentorProfileRepresentation> mentorProfiles = mentors.stream().map(mentor -> {
+      List<MentorAvailability> mentorAvailabilities = availabilitiesByUser.getOrDefault(mentor.getId(), Collections.emptyList());
+
+      Map<String, List<AvailabilitySlot>> availabilitiesByDiscipline = mentorAvailabilities.stream()
+              .filter(avail -> avail.getDiscipline() != null)
+              .collect(Collectors.groupingBy(
+                      avail -> avail.getDiscipline().getDisciplineName(),
+                      Collectors.mapping(
+                              avail -> new AvailabilitySlot(
+                                      avail.getDayOfWeek(),
+                                      avail.getStartTime(),
+                                      avail.getEndTime()
+                              ),
+                              Collectors.toList()
+                      )
+              ));
+
+      List<MentorDisciplineAvailabilityRepresentation> disciplineAvailabilities = availabilitiesByDiscipline.entrySet().stream()
+              .map(entry -> new MentorDisciplineAvailabilityRepresentation(entry.getKey(), entry.getValue()))
+              .collect(Collectors.toList());
+
+      return new MentorProfileRepresentation(
+              mentor.getId(),
+              mentor.getFirstName(),
+              mentor.getLastName(),
+              mentor.getCourseName(),
+              disciplineAvailabilities
+      );
+    }).collect(Collectors.toList());
+
+    log.info("Successfully mapped {} mentor profiles.", mentorProfiles.size());
+    return mentorProfiles;
+  }
+
  //TODO: Mover para userQueryAdapter
   private UserRepresentation mapToRepresentation(User user) {
     return new UserRepresentation(
