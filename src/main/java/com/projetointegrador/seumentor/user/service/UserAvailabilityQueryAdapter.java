@@ -1,7 +1,7 @@
 package com.projetointegrador.seumentor.user.service;
 
 import com.projetointegrador.seumentor.user.api.UserAvailabilityQuery;
-import com.projetointegrador.seumentor.user.repository.UserAvailabilityRepository;
+import com.projetointegrador.seumentor.user.repository.MentorAvailabilityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component; // Ou @Service
 import org.springframework.transaction.annotation.Transactional;
@@ -10,11 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserAvailabilityQueryAdapter implements UserAvailabilityQuery {
 
-  private final UserAvailabilityRepository userAvailabilityRepository;
+  private final MentorAvailabilityRepository mentorAvailabilityRepository;
 
   @Override
   @Transactional(readOnly = true)
   public boolean existsAvailabilityForDiscipline(Long disciplineId) {
-    return userAvailabilityRepository.existsByDisciplineId(disciplineId);
+    return mentorAvailabilityRepository.existsByDisciplineId(disciplineId);
   }
 }
