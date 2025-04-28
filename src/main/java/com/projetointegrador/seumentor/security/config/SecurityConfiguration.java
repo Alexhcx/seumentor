@@ -20,6 +20,8 @@ public class SecurityConfiguration {
         private final JwtAuthenticationFilter jwtAuthFilter;
         private final AuthenticationProvider authenticationProvider;
 
+
+        //TODO: Configuração dos https requests(Autorizações)
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 http
@@ -31,7 +33,7 @@ public class SecurityConfiguration {
                                                                 "/api/v1/auth/forgot-password",
                                                                 "/api/v1/auth/reset-password",
                                                                 "/api/v1/course-areas/**",
-                                                                "/api/v1/disciplines/**")
+                                                                "/api/v1/disciplines/**,")
                                                 .permitAll()
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session

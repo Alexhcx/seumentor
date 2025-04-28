@@ -1,37 +1,24 @@
 package com.projetointegrador.seumentor.course.model;
 
-import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
-
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
-import com.projetointegrador.seumentor.user.model.UserAvailability;
+import com.projetointegrador.seumentor.user.model.MentorAvailability;
 import com.projetointegrador.seumentor.user.model.UserDisciplinePreference;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 
-@Data
+@Getter
+@Setter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@EqualsAndHashCode(callSuper = false)
 @ToString(callSuper = true)
 @Table(name = "discipline")
 public class Discipline extends BaseEntity implements Serializable {
@@ -44,6 +31,8 @@ public class Discipline extends BaseEntity implements Serializable {
 
   @OneToMany(mappedBy = "discipline", fetch = FetchType.LAZY)
   @Builder.Default
+  @ToString.Exclude
+  @EqualsAndHashCode.Exclude
   private Set<Tutoring> relatedTutorings = new HashSet<>();
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -56,7 +45,7 @@ public class Discipline extends BaseEntity implements Serializable {
   @Builder.Default
   @ToString.Exclude 
   @EqualsAndHashCode.Exclude 
-  private Set<UserAvailability> userAvailabilities = new HashSet<>();
+  private Set<MentorAvailability> userAvailabilities = new HashSet<>();
 
   @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
   @Builder.Default
@@ -64,4 +53,19 @@ public class Discipline extends BaseEntity implements Serializable {
   @EqualsAndHashCode.Exclude
   private Set<UserDisciplinePreference> userPreferences = new HashSet<>();
 
+  @Override
+  public final boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null) return false;
+    Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+    Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+    if (thisEffectiveClass != oEffectiveClass) return false;
+    Discipline that = (Discipline) o;
+    return getId() != null && Objects.equals(getId(), that.getId());
+  }
+
+  @Override
+  public final int hashCode() {
+    return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+  }
 }

@@ -9,9 +9,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 @EnableAsync
 @EnableMethodSecurity
 public class SeumentorApplication {
-
 	public static void main(String[] args) {
 		SpringApplication.run(SeumentorApplication.class, args);
 	}
-
 }

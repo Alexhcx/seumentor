@@ -1,35 +1,24 @@
 package com.projetointegrador.seumentor.chat.model;
 
-import java.io.Serializable;
-
 import com.projetointegrador.seumentor.common.model.BaseEntity;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
-import jakarta.persistence.Column; 
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn; 
-import jakarta.persistence.ManyToOne;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode; 
-import lombok.NoArgsConstructor;
-import lombok.ToString; 
+import java.io.Serializable;
+import java.util.Objects;
 
-@Data
+@Getter
+@Setter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@EqualsAndHashCode(callSuper = true, exclude = {"conversation"})
-@ToString(callSuper = true, exclude = {"conversation"})
 public class Attachment extends BaseEntity implements Serializable {
 
     @Id
     @GeneratedValue
-    private Integer id;
+    private Long id;
 
     @Column(nullable = false) 
     private String fileName; 
@@ -40,6 +29,23 @@ public class Attachment extends BaseEntity implements Serializable {
     private String filePath; 
 
     @ManyToOne(fetch = FetchType.LAZY) 
-    @JoinColumn(name = "conversation_id", nullable = false) 
+    @JoinColumn(name = "conversation_id", nullable = false)
+    @ToString.Exclude
     private Conversations conversation;
+
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        Attachment that = (Attachment) o;
+        return getId() != null && Objects.equals(getId(), that.getId());
+    }
+
+    @Override
+    public final int hashCode() {
+        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    }
 }

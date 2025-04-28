@@ -13,3 +13,5 @@ public class AuthenticationResponse {
 
   private String token;
 }
+
+//TODO: Transformar em DTO

@@ -14,3 +14,5 @@ public class AuthenticationRequest {
   private String email;
   private String password;
 }
+
+//TODO: Transformar em DTO

@@ -4,9 +4,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;  
 
 public record DisciplineRequest(
-    @NotBlank(message = "Nome da disciplina não pode ser vazio")
+    @NotBlank
     String disciplineName,
     String description, 
-    @NotNull(message = "ID da área do curso não pode ser nulo")
+    @NotNull
     Long courseAreaId
 ) {}

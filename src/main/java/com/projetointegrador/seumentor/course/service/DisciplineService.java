@@ -39,7 +39,6 @@ public class DisciplineService {
         log.info("Attempting to create Discipline with name: {} for CourseArea ID: {}",
                 request.disciplineName(), request.courseAreaId());
 
-        // 1. Buscar a CourseArea
         CourseArea courseArea = courseAreaRepository.findById(request.courseAreaId())
                 .orElseThrow(() -> {
                     log.warn("Create Discipline failed: CourseArea not found with ID: {}", request.courseAreaId());
@@ -165,6 +164,7 @@ public class DisciplineService {
                     return new DisciplineNotFoundException("Disciplina não encontrada com ID: " + id);
                 });
     }
+    //TODO: Mover DisciplineRepresentation mapToRepresentation para o disciplinequeryadapter
 
     private DisciplineRepresentation mapToRepresentation(Discipline discipline) {
         if (discipline == null) {
