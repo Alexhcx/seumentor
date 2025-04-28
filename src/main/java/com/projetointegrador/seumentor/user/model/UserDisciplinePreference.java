@@ -3,22 +3,18 @@ package com.projetointegrador.seumentor.user.model;
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
+import java.util.Objects;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@EqualsAndHashCode(callSuper = false)
-@ToString(callSuper = true)
 @Table(name = "user_discipline_preference", uniqueConstraints = {
     @UniqueConstraint(columnNames = { "user_id", "discipline_id" })
 })
@@ -44,4 +40,19 @@ public class UserDisciplinePreference extends BaseEntity implements Serializable
   @Column(nullable = false)
   private Boolean isDisciplineMentor = false;
 
+  @Override
+  public final boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null) return false;
+    Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+    Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+    if (thisEffectiveClass != oEffectiveClass) return false;
+    UserDisciplinePreference that = (UserDisciplinePreference) o;
+    return getId() != null && Objects.equals(getId(), that.getId());
+  }
+
+  @Override
+  public final int hashCode() {
+    return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+  }
 }
