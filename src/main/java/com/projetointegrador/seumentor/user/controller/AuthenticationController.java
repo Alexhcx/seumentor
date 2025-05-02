@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,6 +51,7 @@ public class AuthenticationController {
     public ResponseEntity<AuthenticationResponse> register(
             @RequestBody(description = "Dados necessários para o registro", required = true,
                     content = @Content(schema = @Schema(implementation = RegisterRequest.class)))
+            @Valid
             @org.springframework.web.bind.annotation.RequestBody RegisterRequest request) {
         try {
             AuthenticationResponse response = authenticationService.register(request);
