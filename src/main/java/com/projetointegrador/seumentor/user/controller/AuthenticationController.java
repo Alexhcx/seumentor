@@ -53,17 +53,18 @@ public class AuthenticationController {
             @org.springframework.web.bind.annotation.RequestBody RegisterRequest request) {
         try {
             AuthenticationResponse response = authenticationService.register(request);
-            log.info("Registration successful for email: {}", request.getEmail());
+
+            log.info("Registration successful for email: {}", request.email());
             return ResponseEntity.ok(response);
         } catch (Throwable e) {
-            log.error("Registration failed for email {}: {}", request.getEmail(), e.getMessage());
+            log.error("Registration failed for email {}: {}", request.email(), e.getMessage());
             return ResponseEntity.badRequest()
-                    .body(AuthenticationResponse.builder().token("Erro no registro: " + e.getMessage()).build());
+                    .body(new AuthenticationResponse("Erro no registro: " + e.getMessage(), null));
         }
     }
 
     @PostMapping("/authenticate")
-    @Operation(summary = "Autentica um usuário", description = "Verifica as credenciais (e-mail e senha) e retorna um token JWT se forem válidas.")
+    @Operation(summary = "Autentica um usuário", description = "Verifica as credenciais (e-mail e senha) e retorna um token JWT e userId se forem válidas.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Autenticação bem-sucedida",
                     content = @Content(mediaType = "application/json",
@@ -78,12 +79,12 @@ public class AuthenticationController {
             @org.springframework.web.bind.annotation.RequestBody AuthenticationRequest request) {
         try {
             AuthenticationResponse response = authenticationService.authenticate(request);
-            log.info("Authentication successful for email: {}", request.getEmail());
+            log.info("Authentication successful for email: {}", request.email());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.warn("Authentication failed for email {}: {}", request.getEmail(), e.getMessage());
+            log.warn("Authentication failed for email {}: {}", request.email(), e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(AuthenticationResponse.builder().token("Erro na autenticação: " + e.getMessage()).build());
+                    .body(new AuthenticationResponse("Erro na autenticação: " + e.getMessage(), null));
         }
     }
 

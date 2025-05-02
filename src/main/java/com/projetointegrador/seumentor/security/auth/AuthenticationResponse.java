@@ -1,17 +1,7 @@
 package com.projetointegrador.seumentor.security.auth;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+public record AuthenticationResponse(
+        String token,
+        Long userId
+) {}
 
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class AuthenticationResponse {
-
-  private String token;
-}
-
-//TODO: Transformar em DTO

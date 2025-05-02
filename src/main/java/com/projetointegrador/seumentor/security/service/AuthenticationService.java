@@ -1,5 +1,6 @@
 package com.projetointegrador.seumentor.security.service;
 
+import com.projetointegrador.seumentor.user.api.UserQuery;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,42 +21,48 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-  private final AuthenticationManager authenticationManager;
-  private final JwtService jwtService;
-  private final UsersDetailsAdapter userDetailsAdapter;
-  private final UserCommand userCommandService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
+    private final UsersDetailsAdapter userDetailsAdapter;
+    private final UserCommand userCommandService;
+    private final UserQuery userQuery;
 
-  public AuthenticationResponse register(RegisterRequest request) throws Throwable {
+    public AuthenticationResponse register(RegisterRequest request) throws Throwable {
+        UserRegistrationRequest registrationReq = new UserRegistrationRequest(
+                request.firstName(),
+                request.lastName(),
+                request.email(),
+                request.password(),
+                "USER");
 
-    UserRegistrationRequest registrationReq = new UserRegistrationRequest(
-        request.getFirstName(),
-        request.getLastName(),
-        request.getEmail(),
-        request.getPassword(),
-        "USER");
+        UserRepresentation createdUser = userCommandService.createUser(registrationReq);
 
-    UserRepresentation createdUser = userCommandService.createUser(registrationReq);
+        UserDetails userDetails = userDetailsAdapter.findByEmail(createdUser.email())
+                .orElseThrow(
+                        () -> new UsernameNotFoundException("Usuário recém-criado não encontrado (UserDetails): " + createdUser.email()));
 
-    UserDetails userDetails = userDetailsAdapter.findByEmail(createdUser.email())
-        .orElseThrow(
-            () -> new UsernameNotFoundException("Usuário recém-criado não encontrado: " + createdUser.email()));
-    String jwtToken = jwtService.generateToken(userDetails);
+        String jwtToken = jwtService.generateToken(userDetails);
 
-    return AuthenticationResponse.builder().token(jwtToken).build();
-  }
+        return new AuthenticationResponse(jwtToken, createdUser.id());
+    }
 
-  public AuthenticationResponse authenticate(AuthenticationRequest request) {
-    authenticationManager.authenticate(
-        new UsernamePasswordAuthenticationToken(
-            request.getEmail(),
-            request.getPassword()));
-    UserDetails userDetails = userDetailsAdapter.findByEmail(request.getEmail())
-        .orElseThrow(() -> new UsernameNotFoundException(
-            "Usuário não encontrado após autenticação bem-sucedida: " + request.getEmail()));
+    public AuthenticationResponse authenticate(AuthenticationRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.email(),
+                        request.password()
+                ));
 
-    String jwtToken = jwtService.generateToken(userDetails);
+        UserDetails userDetails = userDetailsAdapter.findByEmail(request.email())
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Usuário não encontrado (UserDetails) após autenticação bem-sucedida: " + request.email()));
 
-    return AuthenticationResponse.builder().token(jwtToken).build();
-  }
+        UserRepresentation userRep = userQuery.findByEmail(request.email())
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Usuário não encontrado (UserRepresentation) após autenticação bem-sucedida: " + request.email()));
 
+        String jwtToken = jwtService.generateToken(userDetails);
+
+        return new AuthenticationResponse(jwtToken, userRep.id());
+    }
 }
