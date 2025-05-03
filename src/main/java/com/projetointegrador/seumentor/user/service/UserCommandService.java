@@ -63,6 +63,8 @@ public class UserCommandService implements UserCommand {
     newUser.setFirstName(request.firstName());
     newUser.setLastName(request.lastName());
     newUser.setEmail(request.email());
+    newUser.setCpf(request.cpf());
+    newUser.setPhone(request.phone());
     newUser.setPassword(passwordEncoder.encode(request.password()));
     newUser.setRole(userRole);
 
@@ -117,10 +119,9 @@ public class UserCommandService implements UserCommand {
           return new UserNotFoundException("Usuário não encontrado para atualização com ID: " + userId);
         });
 
-    Optional.ofNullable(request.firstName()).ifPresent(user::setFirstName);
-    Optional.ofNullable(request.lastName()).ifPresent(user::setLastName);
     Optional.ofNullable(request.profileImg()).ifPresent(user::setProfileImg);
     Optional.ofNullable(request.birthday()).ifPresent(user::setBirthday);
+    Optional.ofNullable(request.phone()).ifPresent(user::setPhone);
     Optional.ofNullable(request.city()).ifPresent(user::setCity);
     Optional.ofNullable(request.state()).ifPresent(user::setState);
     Optional.ofNullable(request.country()).ifPresent(user::setCountry);
@@ -370,6 +371,8 @@ public class UserCommandService implements UserCommand {
         user.getEmail(),
         user.getProfileImg(),
         user.getBirthday(),
+        user.getCpf(),
+        user.getPhone(),
         user.getCity(),
         user.getState(),
         user.getCountry(),

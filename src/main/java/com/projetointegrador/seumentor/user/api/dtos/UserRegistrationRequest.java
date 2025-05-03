@@ -13,6 +13,12 @@ public record UserRegistrationRequest(
         @Schema(description = "Endereço de e-mail do usuário (será usado para login)", example = "ana.souza@example.com", requiredMode = Schema.RequiredMode.REQUIRED)
         String email,
 
+        @Schema(description = "Número de CPF do usuário (apenas dígitos)", example = "12345678901", requiredMode = Schema.RequiredMode.REQUIRED)
+        String cpf,
+
+        @Schema(description = "Número de telefone do usuário (apenas dígitos)", example = "11987654321", requiredMode = Schema.RequiredMode.REQUIRED)
+        String phone,
+
         @Schema(description = "Senha para a conta do usuário", example = "senhaSegura123", requiredMode = Schema.RequiredMode.REQUIRED)
         String password,
 

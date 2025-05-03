@@ -32,6 +32,8 @@ public class AuthenticationService {
                 request.firstName(),
                 request.lastName(),
                 request.email(),
+                request.cpf(),
+                request.phone(),
                 request.password(),
                 "USER");
 

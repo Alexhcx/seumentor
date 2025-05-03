@@ -8,6 +8,8 @@ public record RegisterRequest(
         @NotBlank String firstName,
         @NotBlank String lastName,
         @Email String email,
+        @NotBlank String cpf,
+        @NotBlank String phone,
         @NotBlank
         @Size(min = 8, message = "A senha deve ter no mínimo 8 caracteres")
         String password

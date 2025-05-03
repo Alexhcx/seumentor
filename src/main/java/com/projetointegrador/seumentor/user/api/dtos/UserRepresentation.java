@@ -22,6 +22,12 @@ public record UserRepresentation(
         @Schema(description = "Data de nascimento do usuário", example = "1990-05-15")
         String birthday,
 
+        @Schema(description = "Número do CPF do usuário", example = "12345678909")
+        String cpf,
+
+        @Schema(description = "Número de telefone do usuário", example = "11987654321")
+        String phone,
+
         @Schema(description = "Cidade do usuário", example = "São Paulo")
         String city,
 

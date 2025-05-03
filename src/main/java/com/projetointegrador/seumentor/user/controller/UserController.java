@@ -39,6 +39,7 @@ public class UserController {
   private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
   @GetMapping
+  @PreAuthorize("hasAuthority('ADMIN')")
   @Operation(summary = "Lista todos os usuários", description = "Retorna uma lista com a representação de todos os usuários cadastrados.")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "200", description = "Lista de usuários retornada com sucesso",
@@ -55,6 +56,7 @@ public class UserController {
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
   @Operation(summary = "Busca um usuário pelo ID", description = "Retorna a representação de um usuário específico.")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "200", description = "Usuário encontrado",
@@ -82,6 +84,7 @@ public class UserController {
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
   @Operation(summary = "Atualiza um usuário", description = "Atualiza os dados de um usuário existente baseado no ID fornecido.")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "200", description = "Usuário atualizado com sucesso",
@@ -113,7 +116,8 @@ public class UserController {
   }
 
   @DeleteMapping("/{id}")
-  @Operation(summary = "Exclui um usuário", description = "Exclui um usuário permanentemente baseado no ID fornecido.")
+  @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
+  @Operation(summary = "Exclui um usuário e sua conta", description = "Exclui um usuário e sua conta permanentemente baseado no ID fornecido.")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "204", description = "Usuário excluído com sucesso", content = @Content),
           @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
@@ -232,6 +236,7 @@ public class UserController {
   }
 
   @GetMapping("/mentors/{id}/profile")
+  @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
   @Operation(summary = "Busca o perfil detalhado de um mentor pelo ID", description = "Retorna ID, nome, sobrenome, curso, e a lista de disciplinas com seus respectivos horários de disponibilidade do mentor.")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "200", description = "Perfil do mentor encontrado",
@@ -259,6 +264,7 @@ public class UserController {
   }
 
   @GetMapping("/mentors/profiles")
+  @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
   @Operation(summary = "Lista os perfis detalhados de todos os mentores", description = "Retorna uma lista com ID, nome, sobrenome, curso, e a lista de disciplinas com seus respectivos horários de disponibilidade para cada mentor.")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "200", description = "Perfis dos mentores listados com sucesso",
