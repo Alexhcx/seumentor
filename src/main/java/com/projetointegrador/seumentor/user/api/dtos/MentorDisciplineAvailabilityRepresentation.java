@@ -10,5 +10,5 @@ public record MentorDisciplineAvailabilityRepresentation(
         String disciplineName,
 
         @Schema(description = "Lista de horários disponíveis para esta disciplina")
-        List<AvailabilitySlot> slots
+        List<AvailabilitySlotRepresentation> slots
 ) {}

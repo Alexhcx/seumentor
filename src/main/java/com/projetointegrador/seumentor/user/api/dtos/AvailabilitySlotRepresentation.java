@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalTime;
 
 @Schema(description = "Representação de um único slot de horário de disponibilidade")
-public record AvailabilitySlot(
+public record AvailabilitySlotRepresentation(
         @Schema(description = "Dia da semana da disponibilidade", example = "SEGUNDA_FEIRA")
         DayWeek dayOfWeek,
 

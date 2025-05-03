@@ -283,12 +283,12 @@ public class UserCommandService implements UserCommand {
     List<MentorAvailability> userAvailabilities = mentorAvailabilityRepository.findByUserId(mentorId);
     log.debug("Found {} availabilities for mentor ID: {}", userAvailabilities.size(), mentorId);
 
-    Map<String, List<AvailabilitySlot>> availabilitiesByDiscipline = userAvailabilities.stream()
+    Map<String, List<AvailabilitySlotRepresentation>> availabilitiesByDiscipline = userAvailabilities.stream()
             .filter(avail -> avail.getDiscipline() != null)
             .collect(Collectors.groupingBy(
                     avail -> avail.getDiscipline().getDisciplineName(),
                     Collectors.mapping(
-                            avail -> new AvailabilitySlot(
+                            avail -> new AvailabilitySlotRepresentation(
                                     avail.getDayOfWeek(),
                                     avail.getStartTime(),
                                     avail.getEndTime()
@@ -331,12 +331,12 @@ public class UserCommandService implements UserCommand {
     List<MentorProfileRepresentation> mentorProfiles = mentors.stream().map(mentor -> {
       List<MentorAvailability> mentorAvailabilities = availabilitiesByUser.getOrDefault(mentor.getId(), Collections.emptyList());
 
-      Map<String, List<AvailabilitySlot>> availabilitiesByDiscipline = mentorAvailabilities.stream()
+      Map<String, List<AvailabilitySlotRepresentation>> availabilitiesByDiscipline = mentorAvailabilities.stream()
               .filter(avail -> avail.getDiscipline() != null)
               .collect(Collectors.groupingBy(
                       avail -> avail.getDiscipline().getDisciplineName(),
                       Collectors.mapping(
-                              avail -> new AvailabilitySlot(
+                              avail -> new AvailabilitySlotRepresentation(
                                       avail.getDayOfWeek(),
                                       avail.getStartTime(),
                                       avail.getEndTime()

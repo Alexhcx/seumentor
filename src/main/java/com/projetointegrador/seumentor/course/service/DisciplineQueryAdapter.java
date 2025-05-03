@@ -1,7 +1,7 @@
 package com.projetointegrador.seumentor.course.service;
 
 import com.projetointegrador.seumentor.course.api.DisciplineQuery;
-import com.projetointegrador.seumentor.course.api.dto.SimpleDisciplineInfo;
+import com.projetointegrador.seumentor.course.api.dto.SimpleDisciplineRepresentation;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.course.repository.DisciplineRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,12 +28,12 @@ public class DisciplineQueryAdapter implements DisciplineQuery {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<SimpleDisciplineInfo> findBasicInfoById(Long disciplineId) {
+    public Optional<SimpleDisciplineRepresentation> findBasicInfoById(Long disciplineId) {
         if (disciplineId == null) {
             return Optional.empty();
         }
         return disciplineRepository.findById(disciplineId)
-                .map(discipline -> new SimpleDisciplineInfo(discipline.getId(), discipline.getDisciplineName()));
+                .map(discipline -> new SimpleDisciplineRepresentation(discipline.getId(), discipline.getDisciplineName()));
     }
 
     @Override
