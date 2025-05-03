@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -37,6 +38,7 @@ public class CourseAreaController {
     private static final Logger log = LoggerFactory.getLogger(CourseAreaController.class);
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Cria uma nova Área de Curso", description = "Registra uma nova combinação de curso e área.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Área de curso criada com sucesso",
@@ -111,6 +113,7 @@ public class CourseAreaController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Atualiza uma Área de Curso", description = "Atualiza os dados de uma área de curso existente.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Área de curso atualizada com sucesso",
@@ -144,6 +147,7 @@ public class CourseAreaController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Exclui uma Área de Curso", description = "Exclui uma área de curso se ela não possuir disciplinas associadas.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Área de curso excluída com sucesso", content = @Content),

@@ -208,7 +208,7 @@ public class UserController {
   }
 
   @DeleteMapping("/{userId}/availabilities/{availabilityId}")
-  @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
+  @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN') or hasAuthority('MENTOR')")
   @Operation(summary = "Exclui uma disponibilidade específica", description = "Remove um horário de disponibilidade pelo seu ID. Requer autenticação e autorização.")
   @ApiResponses(value = {
           @ApiResponse(responseCode = "204", description = "Disponibilidade excluída com sucesso", content = @Content),

@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -38,6 +39,7 @@ public class DisciplineController {
     private static final Logger log = LoggerFactory.getLogger(DisciplineController.class);
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Cria uma nova Disciplina", description = "Registra uma nova disciplina associada a uma Área de Curso existente.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Disciplina criada com sucesso",
@@ -123,6 +125,7 @@ public class DisciplineController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Atualiza uma Disciplina", description = "Atualiza os dados de uma disciplina existente.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Disciplina atualizada com sucesso",
@@ -156,6 +159,7 @@ public class DisciplineController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Exclui uma Disciplina", description = "Exclui uma disciplina se ela não possuir dados associados (disponibilidades, mentorias, etc.).")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Disciplina excluída com sucesso", content = @Content),
