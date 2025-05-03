@@ -18,12 +18,12 @@ import java.util.Objects;
 @AllArgsConstructor
 @Entity
 @Table(name = "mentor_availability", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"user_id", "discipline_id", "day_of_week", "start_time", "end_time"}) 
+        @UniqueConstraint(columnNames = {"user_id", "discipline_id", "day_of_week", "start_time", "end_time"})
 })
 public class MentorAvailability extends BaseEntity implements Serializable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) 
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -36,17 +36,20 @@ public class MentorAvailability extends BaseEntity implements Serializable {
     @JoinColumn(name = "discipline_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Discipline discipline; 
+    private Discipline discipline;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "day_of_week", nullable = false)
     private DayWeek dayOfWeek;
 
     @Column(name = "start_time", nullable = false)
-    private LocalTime startTime; 
+    private LocalTime startTime;
 
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
+
+    @Column(nullable = false)
+    private Boolean isAvailable;
 
     @Override
     public final boolean equals(Object o) {

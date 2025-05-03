@@ -46,6 +46,8 @@ public class UserQueryAdapter implements UserQuery {
                 user.getEmail(),
                 user.getProfileImg(),
                 user.getBirthday(),
+                user.getCpf(),
+                user.getPhone(),
                 user.getCity(),
                 user.getState(),
                 user.getCountry(),

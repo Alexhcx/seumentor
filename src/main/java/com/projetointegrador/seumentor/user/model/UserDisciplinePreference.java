@@ -36,10 +36,6 @@ public class UserDisciplinePreference extends BaseEntity implements Serializable
   @EqualsAndHashCode.Exclude
   private Discipline discipline;
 
-  @Builder.Default
-  @Column(nullable = false)
-  private Boolean isDisciplineMentor = false;
-
   @Override
   public final boolean equals(Object o) {
     if (this == o) return true;
