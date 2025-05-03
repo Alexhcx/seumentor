@@ -179,7 +179,7 @@ public class DisciplineController {
         } catch (DisciplineNotFoundException e) {
             log.warn("Delete failed. Discipline not found for ID {}: {}", id, e.getMessage());
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-        } catch (DataIntegrityViolationException e) { // Erro específico 409
+        } catch (DataIntegrityViolationException e) {
             log.warn("Delete failed for ID {}: Discipline has associated data (availabilities, tutorings, etc.).", id);
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Não é possível excluir disciplina pois possui dados associados (disponibilidades, mentorias, etc.).",

@@ -46,7 +46,7 @@ public class TutoringController {
     private static final Logger log = LoggerFactory.getLogger(TutoringController.class);
 
     @PostMapping("/schedule")
-    @PreAuthorize("#request.menteeId() == authentication.principal.id or hasAuthority('ADMIN')")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Agenda uma nova mentoria", description = "Cria uma solicitação de mentoria entre um mentor e um mentorado para uma disciplina específica. Requer que o solicitante seja o mentorado ou um ADMIN.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Mentoria agendada com sucesso (status inicial PENDENTE ou AGENDADA, dependendo da lógica)",
@@ -80,7 +80,7 @@ public class TutoringController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ADMIN') or @tutoringSecurityService.canAccessTutoring(authentication, #id)")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Busca mentoria por ID", description = "Retorna os detalhes de uma mentoria específica. Requer que o usuário seja participante ou ADMIN.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Mentoria encontrada",
@@ -103,7 +103,7 @@ public class TutoringController {
     }
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Lista mentorias com filtros", description = "Retorna uma lista de mentorias, permitindo filtrar por mentor, disciplina e status.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de mentorias retornada com sucesso",
@@ -127,7 +127,7 @@ public class TutoringController {
     }
 
     @PutMapping("/{id}/confirm")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('MENTOR') or hasAuthority('ADMIN')")
     @Operation(summary = "Confirma e atualiza detalhes de uma mentoria agendada", description = "Permite ao mentor confirmar uma mentoria (status AGENDADA) adicionando local/link, número máximo de participantes e se o chat está ativo. Requer autenticação.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Mentoria confirmada e atualizada com sucesso",
@@ -167,7 +167,7 @@ public class TutoringController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Atualiza o status de uma mentoria", description = "Altera o status de uma mentoria (ex: para EM_ANDAMENTO, CONCLUIDA, CANCELADA). Requer autenticação e permissões adequadas (geralmente mentor ou ADMIN).")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Status da mentoria atualizado com sucesso",
@@ -206,7 +206,7 @@ public class TutoringController {
         }
     }
     @PostMapping("/{tutoringId}/participants")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Adiciona um participante a uma mentoria", description = "Inscreve um usuário como participante em uma mentoria agendada. Requer autenticação.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Participante adicionado com sucesso",
@@ -267,7 +267,7 @@ public class TutoringController {
         }
     }
     @PostMapping("/{tutoringId}/ratings")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Adiciona uma avaliação a uma mentoria concluída", description = "Permite que um participante avalie uma mentoria após sua conclusão. Requer autenticação.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Avaliação adicionada com sucesso",
