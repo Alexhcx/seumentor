@@ -61,7 +61,7 @@ public class User extends BaseEntity implements UserDetails {
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Set<UserDisciplinePreference> disciplinePreferences = new HashSet<>();
+    private Set<UserFavoriteDisciplines> disciplinePreferences = new HashSet<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
