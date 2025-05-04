@@ -17,4 +17,6 @@ public interface MentorAvailabilityRepository extends JpaRepository<MentorAvaila
 
     boolean existsByDisciplineId(Long disciplineId);
 
+    List<MentorAvailability> findByUserIdIn(List<Long> userIds);
+
 }

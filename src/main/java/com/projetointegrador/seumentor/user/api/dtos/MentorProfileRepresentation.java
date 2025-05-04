@@ -14,9 +14,6 @@ public record MentorProfileRepresentation(
         @Schema(description = "Sobrenome do mentor", example = "Silva")
         String lastName,
 
-        @Schema(description = "Nome do curso do mentor", example = "Engenharia de Software")
-        String courseName,
-
         @Schema(description = "Lista de disciplinas e horários de disponibilidade do mentor")
         List<MentorDisciplineAvailabilityRepresentation> availabilities
 ) {}
