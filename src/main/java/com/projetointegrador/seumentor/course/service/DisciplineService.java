@@ -10,7 +10,6 @@ import com.projetointegrador.seumentor.course.repository.CourseAreaRepository;
 import com.projetointegrador.seumentor.course.repository.DisciplineRepository;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
 import com.projetointegrador.seumentor.user.api.UserAvailabilityQuery;
-import com.projetointegrador.seumentor.user.api.UserPreferenceQuery;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -30,7 +29,6 @@ public class DisciplineService {
     private final CourseAreaRepository courseAreaRepository;
     private final TutoringQuery tutoringQuery;
     private final UserAvailabilityQuery userAvailabilityQuery;
-    private final UserPreferenceQuery userPreferenceQuery;
 
     private static final Logger log = LoggerFactory.getLogger(DisciplineService.class);
 
@@ -147,11 +145,6 @@ public class DisciplineService {
             log.warn("Delete failed for ID {}: Discipline has associated Tutoring sessions.", id);
             throw new DataIntegrityViolationException(
                     "Não é possível excluir disciplina pois possui mentorias associadas.");
-        }
-        if (userPreferenceQuery.existsPreferenceForDiscipline(id)) {
-            log.warn("Delete failed for ID {}: Discipline has associated UserDisciplinePreference.", id);
-            throw new DataIntegrityViolationException(
-                    "Não é possível excluir disciplina pois possui preferências de usuários associadas.");
         }
         disciplineRepository.deleteById(id);
         log.info("Discipline deleted successfully with ID: {}", id);

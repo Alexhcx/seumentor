@@ -15,10 +15,10 @@ import java.util.Objects;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "user_discipline_preference", uniqueConstraints = {
+@Table(name = "user_favorite_disciplines", uniqueConstraints = {
     @UniqueConstraint(columnNames = { "user_id", "discipline_id" })
 })
-public class UserDisciplinePreference extends BaseEntity implements Serializable {
+public class UserFavoriteDisciplines extends BaseEntity implements Serializable {
 
   @Id
   @GeneratedValue
@@ -43,7 +43,7 @@ public class UserDisciplinePreference extends BaseEntity implements Serializable
     Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
     Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
     if (thisEffectiveClass != oEffectiveClass) return false;
-    UserDisciplinePreference that = (UserDisciplinePreference) o;
+    UserFavoriteDisciplines that = (UserFavoriteDisciplines) o;
     return getId() != null && Objects.equals(getId(), that.getId());
   }
 

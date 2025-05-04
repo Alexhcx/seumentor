@@ -3,7 +3,7 @@ package com.projetointegrador.seumentor.course.model;
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 import com.projetointegrador.seumentor.user.model.MentorAvailability;
-import com.projetointegrador.seumentor.user.model.UserDisciplinePreference;
+import com.projetointegrador.seumentor.user.model.UserFavoriteDisciplines;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -51,7 +51,7 @@ public class Discipline extends BaseEntity implements Serializable {
   @Builder.Default
   @ToString.Exclude
   @EqualsAndHashCode.Exclude
-  private Set<UserDisciplinePreference> userPreferences = new HashSet<>();
+  private Set<UserFavoriteDisciplines> userPreferences = new HashSet<>();
 
   @Override
   public final boolean equals(Object o) {
