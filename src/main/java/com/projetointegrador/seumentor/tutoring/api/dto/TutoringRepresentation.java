@@ -1,11 +1,9 @@
 package com.projetointegrador.seumentor.tutoring.api.dto;
 
-import com.projetointegrador.seumentor.tutoring.model.ClassType;
+import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
 import com.projetointegrador.seumentor.tutoring.model.StatusTutoring;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Set;
 
 @Schema(description = "Representação completa dos dados de uma mentoria")
@@ -26,16 +24,19 @@ public record TutoringRepresentation(
         String disciplineName,
 
         @Schema(description = "Tipo da mentoria", example = "ONLINE")
-        ClassType classType,
+        TutoringClassType tutoringClassType,
 
         @Schema(description = "Status atual da mentoria", example = "CONCLUIDA")
         StatusTutoring status,
 
-        @Schema(description = "Data e hora de início da mentoria", example = "2024-05-20T14:00:00")
-        LocalDateTime startTime,
+        @Schema(description = "Horário de início da mentoria (HH:mm)", type = "string", example = "14:00")
+        String startTime,
 
-        @Schema(description = "Data e hora de término da mentoria", example = "2024-05-20T15:30:00")
-        LocalDateTime endTime,
+        @Schema(description = "Horário de término da mentoria (HH:mm)", type = "string", example = "15:30")
+        String endTime,
+
+        @Schema(description = "Data da mentoria (dd/MM/yyyy)", type = "string", example = "03/12/2007")
+        String tutoringDate,
 
         @Schema(description = "Local da mentoria (para tipo PRESENCIAL)", example = "Sala C101")
         String local,

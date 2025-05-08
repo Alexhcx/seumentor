@@ -9,7 +9,7 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -40,14 +40,14 @@ public class Tutoring extends BaseEntity implements Serializable {
   private Discipline discipline;
 
   @Enumerated(EnumType.STRING)
-  private ClassType classType;
+  private TutoringClassType tutoringClassType;
 
   @Enumerated(EnumType.STRING)
   @Builder.Default
   private StatusTutoring status = StatusTutoring.PENDENTE;
 
-  private LocalDateTime startTime;
-  private LocalDateTime endTime;
+  private LocalTime startTime;
+  private LocalTime endTime;
 
   private LocalDate tutoringDate;
 
