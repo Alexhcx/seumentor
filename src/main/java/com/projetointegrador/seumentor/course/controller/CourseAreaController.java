@@ -37,34 +37,6 @@ public class CourseAreaController {
     private final CourseAreaService courseAreaService;
     private static final Logger log = LoggerFactory.getLogger(CourseAreaController.class);
 
-    @PostMapping
-    @PreAuthorize("hasAuthority('ADMIN')")
-    @Operation(summary = "Cria uma nova Área de Curso", description = "Registra uma nova combinação de curso e área.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Área de curso criada com sucesso",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CourseAreaRepresentation.class))),
-            @ApiResponse(responseCode = "400", description = "Requisição inválida (ex: dados faltando, combinação já existe)", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
-    })
-    public ResponseEntity<CourseAreaRepresentation> createCourseArea(
-            @RequestBody(description = "Dados da nova área de curso", required = true,
-                    content = @Content(schema = @Schema(implementation = CourseAreaRequest.class)))
-            @Valid @org.springframework.web.bind.annotation.RequestBody CourseAreaRequest request) {
-        log.info("Received request to create CourseArea: {}", request);
-        try {
-            CourseAreaRepresentation createdCourseArea = courseAreaService.createCourseArea(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdCourseArea);
-        } catch (IllegalArgumentException e) {
-            log.warn("Create CourseArea failed: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Error creating CourseArea: {}", e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao criar área de curso", e);
-        }
-    }
-
     @GetMapping
     @Operation(summary = "Lista todas as Áreas de Curso", description = "Retorna uma lista de todas as áreas de curso cadastradas.")
     @ApiResponses(value = {
@@ -72,7 +44,7 @@ public class CourseAreaController {
                     content = @Content(mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = CourseAreaRepresentation.class)))),
             @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content), // Assuming @PreAuthorize might be added later
             @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
     })
     public ResponseEntity<List<CourseAreaRepresentation>> getAllCourseAreas() {
@@ -109,6 +81,34 @@ public class CourseAreaController {
         } catch (Exception e) {
             log.error("Error retrieving CourseArea with ID {}: {}", id, e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar área de curso por ID", e);
+        }
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @Operation(summary = "Cria uma nova Área de Curso", description = "Registra uma nova combinação de curso e área.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Área de curso criada com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = CourseAreaRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Requisição inválida (ex: dados faltando, combinação já existe)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<CourseAreaRepresentation> createCourseArea(
+            @RequestBody(description = "Dados da nova área de curso", required = true,
+                    content = @Content(schema = @Schema(implementation = CourseAreaRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody CourseAreaRequest request) {
+        log.info("Received request to create CourseArea: {}", request);
+        try {
+            CourseAreaRepresentation createdCourseArea = courseAreaService.createCourseArea(request);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdCourseArea);
+        } catch (IllegalArgumentException e) {
+            log.warn("Create CourseArea failed: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error creating CourseArea: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao criar área de curso", e);
         }
     }
 

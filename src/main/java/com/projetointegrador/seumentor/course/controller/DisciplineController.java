@@ -38,6 +38,60 @@ public class DisciplineController {
     private final DisciplineService disciplineService;
     private static final Logger log = LoggerFactory.getLogger(DisciplineController.class);
 
+    @GetMapping
+    @Operation(summary = "Lista todas as Disciplinas", description = "Retorna uma lista de todas as disciplinas cadastradas, opcionalmente filtradas por Área de Curso.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de disciplinas retornada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = DisciplineRepresentation.class)))),
+            @ApiResponse(responseCode = "404", description = "Área de curso (CourseArea) não encontrada (se o filtro for usado e inválido)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content), // Assuming @PreAuthorize might be added later for general access
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<List<DisciplineRepresentation>> getAllDisciplines(
+            @Parameter(description = "ID da Área de Curso para filtrar as disciplinas (opcional)", required = false, example = "5")
+            @RequestParam(name = "courseAreaId", required = false) Long courseAreaId) {
+        log.info("Received request to get all Disciplines"
+                + (courseAreaId != null ? " for CourseArea ID: " + courseAreaId : ""));
+        try {
+            List<DisciplineRepresentation> disciplines = disciplineService.getAllDisciplines(courseAreaId);
+            return ResponseEntity.ok(disciplines);
+        } catch (CourseAreaNotFoundException e) {
+            log.warn("Get Disciplines failed: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error retrieving Disciplines: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar disciplinas", e);
+        }
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Busca Disciplina por ID", description = "Retorna os detalhes de uma disciplina específica.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Disciplina encontrada",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = DisciplineRepresentation.class))),
+            @ApiResponse(responseCode = "404", description = "Disciplina não encontrada", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content), // Assuming @PreAuthorize might be added later
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<DisciplineRepresentation> getDisciplineById(
+            @Parameter(description = "ID da disciplina a ser buscada", required = true)
+            @PathVariable Long id) {
+        log.info("Received request to get Discipline by ID: {}", id);
+        try {
+            DisciplineRepresentation discipline = disciplineService.getDisciplineById(id);
+            return ResponseEntity.ok(discipline);
+        } catch (DisciplineNotFoundException e) {
+            log.warn("Discipline not found for ID {}: {}", id, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error retrieving Discipline with ID {}: {}", id, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar disciplina por ID", e);
+        }
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('ADMIN')")
     @Operation(summary = "Cria uma nova Disciplina", description = "Registra uma nova disciplina associada a uma Área de Curso existente.")
@@ -67,60 +121,6 @@ public class DisciplineController {
         } catch (Exception e) {
             log.error("Error creating Discipline: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao criar disciplina", e);
-        }
-    }
-
-    @GetMapping
-    @Operation(summary = "Lista todas as Disciplinas", description = "Retorna uma lista de todas as disciplinas cadastradas, opcionalmente filtradas por Área de Curso.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de disciplinas retornada com sucesso",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = DisciplineRepresentation.class)))),
-            @ApiResponse(responseCode = "404", description = "Área de curso (CourseArea) não encontrada (se o filtro for usado e inválido)", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
-    })
-    public ResponseEntity<List<DisciplineRepresentation>> getAllDisciplines(
-            @Parameter(description = "ID da Área de Curso para filtrar as disciplinas (opcional)", required = false, example = "5")
-            @RequestParam(name = "courseAreaId", required = false) Long courseAreaId) {
-        log.info("Received request to get all Disciplines"
-                + (courseAreaId != null ? " for CourseArea ID: " + courseAreaId : ""));
-        try {
-            List<DisciplineRepresentation> disciplines = disciplineService.getAllDisciplines(courseAreaId);
-            return ResponseEntity.ok(disciplines);
-        } catch (CourseAreaNotFoundException e) {
-            log.warn("Get Disciplines failed: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Error retrieving Disciplines: {}", e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar disciplinas", e);
-        }
-    }
-
-    @GetMapping("/{id}")
-    @Operation(summary = "Busca Disciplina por ID", description = "Retorna os detalhes de uma disciplina específica.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Disciplina encontrada",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = DisciplineRepresentation.class))),
-            @ApiResponse(responseCode = "404", description = "Disciplina não encontrada", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
-    })
-    public ResponseEntity<DisciplineRepresentation> getDisciplineById(
-            @Parameter(description = "ID da disciplina a ser buscada", required = true)
-            @PathVariable Long id) {
-        log.info("Received request to get Discipline by ID: {}", id);
-        try {
-            DisciplineRepresentation discipline = disciplineService.getDisciplineById(id);
-            return ResponseEntity.ok(discipline);
-        } catch (DisciplineNotFoundException e) {
-            log.warn("Discipline not found for ID {}: {}", id, e.getMessage());
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Error retrieving Discipline with ID {}: {}", id, e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar disciplina por ID", e);
         }
     }
 
