@@ -1,6 +1,7 @@
 // main/java/com/projetointegrador/seumentor/user/service/UserCommandService.java
 package com.projetointegrador.seumentor.user.service;
 
+import com.projetointegrador.seumentor.common.util.CPFUtils;
 import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException;
 import com.projetointegrador.seumentor.user.api.UserQuery; // Apenas a interface
 import com.projetointegrador.seumentor.user.api.dtos.*;
@@ -9,6 +10,8 @@ import com.projetointegrador.seumentor.user.model.UserFavoriteDisciplines;
 import com.projetointegrador.seumentor.user.repository.UserFavoriteDisciplinesRepository;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -25,11 +28,11 @@ import com.projetointegrador.seumentor.user.model.Role;
 import com.projetointegrador.seumentor.user.model.User;
 import com.projetointegrador.seumentor.user.model.MentorAvailability;
 
-import jakarta.persistence.EntityNotFoundException; // Mantido para tratamento interno se necessário
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -72,7 +75,7 @@ public class UserCommandService implements UserCommand {
     newUser.setFirstName(request.firstName());
     newUser.setLastName(request.lastName());
     newUser.setEmail(request.email());
-    newUser.setCpf(request.cpf());
+    newUser.setCpf(CPFUtils.removerFormatacao(request.cpf()));
     newUser.setPhone(request.phone());
     newUser.setPassword(passwordEncoder.encode(request.password()));
     newUser.setRole(userRole);
@@ -100,7 +103,6 @@ public class UserCommandService implements UserCommand {
   @Transactional
   public UserRepresentation updateUser(Long userId, UserUpdateRequest request) {
     log.info("Command: Attempting to update user with ID: {}", userId);
-    // Busca a entidade para atualizar
     User user = userRepository.findById(userId)
             .orElseThrow(() -> {
               log.warn("Command: Update failed: User not found with ID: {}", userId);
@@ -204,6 +206,41 @@ public class UserCommandService implements UserCommand {
     userRepository.save(user);
     log.info("Command: Password successfully reset for user ID: {}", user.getId());
   }
+
+  @Override
+  @Transactional
+  public void changeUserPassword(Long userId, ChangePasswordRequest request) throws Exception {
+    log.info("Command: Attempting to change password for user ID: {}", userId);
+
+    User user = userRepository.findById(userId)
+            .orElseThrow(() -> {
+              log.warn("Command: Change password failed: User not found with ID: {}", userId);
+              return new UserNotFoundException("Usuário não encontrado com ID: " + userId);
+            });
+
+    if (!passwordEncoder.matches(request.oldPassword(), user.getPassword())) {
+      log.warn("Command: Change password failed: Old password does not match for user ID: {}", userId);
+      throw new BadCredentialsException("A senha antiga está incorreta.");
+    }
+
+    if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+      log.warn("Command: Change password failed: New password is the same as the old password for user ID: {}", userId);
+      throw new IllegalArgumentException("A nova senha não pode ser igual à senha antiga.");
+    }
+
+    if (request.newPassword() == null || request.newPassword().length() < 8) {
+      log.warn("Command: Change password failed: New password does not meet length criteria for user ID: {}", userId);
+      throw new IllegalArgumentException("A nova senha deve ter pelo menos 8 caracteres.");
+    }
+
+    user.setPassword(passwordEncoder.encode(request.newPassword()));
+    userRepository.save(user);
+    log.info("Command: Password successfully changed for user ID: {}", userId);
+
+    // Opcional: Publicar um evento se necessário (ex: notificar o usuário sobre a troca de senha)
+    // UserPasswordChangedEvent event = new UserPasswordChangedEvent(user.getId(), user.getEmail());
+    // eventPublisher.publishEvent(event);
+  }
   @Transactional
   public UserAvailabilityRepresentation addAvailability(Long userId, UserAvailabilityRequest request) {
     log.info("Command: Attempting to add availability for user ID: {} with discipline ID: {}", userId, request.disciplineId());
@@ -223,7 +260,6 @@ public class UserCommandService implements UserCommand {
       user.setRole(Role.MENTOR);
     }
 
-    // 4. Buscar a referência da Disciplina
     Discipline disciplineRef = disciplineQuery.findBasicInfoById(request.disciplineId())
             .map(info -> disciplineQuery.getReferenceById(info.id()))
             .orElseThrow(() -> {
@@ -237,7 +273,8 @@ public class UserCommandService implements UserCommand {
             .dayOfWeek(request.dayOfWeek())
             .startTime(request.startTime())
             .endTime(request.endTime())
-            .isAvailable(true)
+            .tutoringClassType(request.tutoringClassType())
+            .isAvailable(false)
             .build();
 
     MentorAvailability savedAvailability = mentorAvailabilityRepository.save(newAvailability);
@@ -245,6 +282,81 @@ public class UserCommandService implements UserCommand {
 
     return userQuery.findAvailabilityRepresentationById(savedAvailability.getId())
             .orElseThrow(() -> new IllegalStateException("Falha ao buscar representação da disponibilidade recém-criada: " + savedAvailability.getId()));
+  }
+
+  @Transactional
+  public List<UserAvailabilityRepresentation> updateAvailabilityStatus(Long userId, Long availabilityId, UpdateAvailabilityStatusRequest request) {
+    log.info("Command: Attempting to update availability status for ID: {} (User: {}) to {}", availabilityId, userId, request.isAvailable());
+
+    MentorAvailability targetAvailability = mentorAvailabilityRepository.findById(availabilityId)
+            .orElseThrow(() -> {
+              log.warn("Command: Update status failed: Availability not found with ID: {}", availabilityId);
+              return new AvailabilityNotFoundException("Horário de disponibilidade não encontrado com ID: " + availabilityId);
+            });
+
+    if (!targetAvailability.getUser().getId().equals(userId)) {
+      log.warn("Command: Update status failed: Availability ID {} does not belong to user ID {}", availabilityId, userId);
+      throw new AccessDeniedException("Usuário não autorizado a modificar esta disponibilidade.");
+    }
+
+    boolean newStatus = request.isAvailable();
+    List<MentorAvailability> availabilitiesToSave = new ArrayList<>();
+
+    if (newStatus) {
+      log.debug("Command: Activating availability ID {}. Checking for conflicts for user ID {} on day {}",
+              availabilityId, userId, targetAvailability.getDayOfWeek());
+
+      List<MentorAvailability> sameDayAvailabilities = mentorAvailabilityRepository.findByUserIdAndDayOfWeek(
+              userId, targetAvailability.getDayOfWeek()
+      );
+
+      List<MentorAvailability> modifiedConflicts = new ArrayList<>();
+
+      for (MentorAvailability otherAvailability : sameDayAvailabilities) {
+        if (otherAvailability.getId().equals(availabilityId)) {
+          continue;
+        }
+
+        boolean overlaps = doesOverlap(targetAvailability, otherAvailability);
+
+        if (overlaps && otherAvailability.getIsAvailable()) {
+          log.debug("Command: Availability ID {} conflicts with target ID {}. Deactivating.", otherAvailability.getId(), availabilityId);
+          otherAvailability.setIsAvailable(false);
+          modifiedConflicts.add(otherAvailability);
+        }
+      }
+
+      if (!modifiedConflicts.isEmpty()) {
+        availabilitiesToSave.addAll(modifiedConflicts);
+      }
+
+      targetAvailability.setIsAvailable(true);
+      availabilitiesToSave.add(targetAvailability);
+
+    } else {
+      log.debug("Command: Deactivating availability ID {}", availabilityId);
+      if (targetAvailability.getIsAvailable()) {
+        targetAvailability.setIsAvailable(false);
+        availabilitiesToSave.add(targetAvailability);
+      }
+    }
+
+    if (!availabilitiesToSave.isEmpty()) {
+      mentorAvailabilityRepository.saveAll(availabilitiesToSave);
+      log.info("Command: Saved {} availability status changes for user ID {}", availabilitiesToSave.size(), userId);
+    }
+
+    return userQuery.findAvailabilitiesRepresentationByUserId(userId);
+  }
+
+
+  private boolean doesOverlap(MentorAvailability target, MentorAvailability other) {
+    LocalTime targetStart = target.getStartTime();
+    LocalTime targetEnd = target.getEndTime();
+    LocalTime otherStart = other.getStartTime();
+    LocalTime otherEnd = other.getEndTime();
+
+    return targetStart.isBefore(otherEnd) && targetEnd.isAfter(otherStart);
   }
 
   @Transactional
