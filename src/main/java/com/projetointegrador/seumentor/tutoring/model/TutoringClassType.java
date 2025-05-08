@@ -1,6 +1,6 @@
 package com.projetointegrador.seumentor.tutoring.model;
 
-public enum ClassType {
+public enum TutoringClassType {
   PRESENCIAL,
   ONLINE
 }

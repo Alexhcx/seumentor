@@ -2,6 +2,7 @@ package com.projetointegrador.seumentor.user.model;
 
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 import com.projetointegrador.seumentor.course.model.Discipline;
+import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -46,6 +47,9 @@ public class MentorAvailability extends BaseEntity implements Serializable {
 
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
+
+    @Column(name = "TutoringClassType", nullable = false)
+    private TutoringClassType tutoringClassType;
 
     @Column(nullable = false)
     private Boolean isAvailable;

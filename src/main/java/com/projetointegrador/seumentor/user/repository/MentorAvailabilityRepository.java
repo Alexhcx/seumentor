@@ -1,5 +1,6 @@
 package com.projetointegrador.seumentor.user.repository;
 
+import com.projetointegrador.seumentor.user.model.DayWeek;
 import com.projetointegrador.seumentor.user.model.MentorAvailability;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -18,5 +19,9 @@ public interface MentorAvailabilityRepository extends JpaRepository<MentorAvaila
     boolean existsByDisciplineId(Long disciplineId);
 
     List<MentorAvailability> findByUserIdIn(List<Long> userIds);
+
+    List<MentorAvailability> findByUserIdAndDayOfWeek(Long userId, DayWeek dayOfWeek);
+
+    List<MentorAvailability> findByDayOfWeek(DayWeek dayOfWeek);
 
 }
