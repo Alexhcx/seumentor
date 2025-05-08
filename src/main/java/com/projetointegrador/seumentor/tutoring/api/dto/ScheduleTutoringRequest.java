@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import com.projetointegrador.seumentor.tutoring.model.ClassType;
+import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
 
 @Schema(description = "Dados necessários para agendar (solicitar) uma nova mentoria")
 public record ScheduleTutoringRequest(
@@ -39,5 +39,5 @@ public record ScheduleTutoringRequest(
 
         @NotNull
         @Schema(description = "Tipo da mentoria (ONLINE ou PRESENCIAL)", example = "ONLINE", requiredMode = Schema.RequiredMode.REQUIRED)
-        ClassType classType
+        TutoringClassType tutoringClassType
 ) {}

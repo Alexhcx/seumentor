@@ -1,5 +1,6 @@
 package com.projetointegrador.seumentor.user.api.dtos;
 
+import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
 import com.projetointegrador.seumentor.user.model.DayWeek;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
@@ -21,5 +22,9 @@ public record UserAvailabilityRequest(
 
         @NotNull
         @Schema(description = "Horário de término da disponibilidade (Formato HH:mm:ss)", type = "string", example = "11:00:00", requiredMode = Schema.RequiredMode.REQUIRED)
-        LocalTime endTime
+        LocalTime endTime,
+
+        @NotNull
+        @Schema(description = "Tipo da aula da monitoria (ONLINE ou PRESENCIAL)", example = "ONLINE", requiredMode = Schema.RequiredMode.REQUIRED)
+        TutoringClassType tutoringClassType
 ) {}

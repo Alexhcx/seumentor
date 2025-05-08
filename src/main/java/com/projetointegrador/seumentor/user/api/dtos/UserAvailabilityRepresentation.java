@@ -1,7 +1,9 @@
 package com.projetointegrador.seumentor.user.api.dtos;
 
+import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
 import com.projetointegrador.seumentor.user.model.DayWeek;
 import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.LocalTime;
 
 @Schema(description = "Representação de um horário de disponibilidade de um usuário/mentor")
@@ -19,5 +21,12 @@ public record UserAvailabilityRepresentation(
         LocalTime startTime,
 
         @Schema(description = "Horário de término da disponibilidade", type = "string", example = "16:00:00")
-        LocalTime endTime
-) {}
+        LocalTime endTime,
+
+        @Schema(description = "Indica se o mentor está atualmente disponível neste horário", example = "true")
+        Boolean isAvailable,
+
+        @Schema(description = "Tipo da aula da monitoria (ONLINE ou PRESENCIAL)", example = "ONLINE")
+        TutoringClassType tutoringClassType
+) {
+}
