@@ -157,17 +157,22 @@ public class DisciplineService {
                     return new DisciplineNotFoundException("Disciplina não encontrada com ID: " + id);
                 });
     }
-    //TODO: Mover DisciplineRepresentation mapToRepresentation para o disciplinequeryadapter
+    // TODO: Mover DisciplineRepresentation mapToRepresentation para o
+    // disciplinequeryadapter
 
     private DisciplineRepresentation mapToRepresentation(Discipline discipline) {
         if (discipline == null) {
             return null;
         }
         Long courseAreaId = null;
-        String courseAreaName = null;
+        String areaName = null; 
+        String courseName = null; 
+
         if (discipline.getCourseArea() != null) {
-            courseAreaId = discipline.getCourseArea().getId();
-            courseAreaName = discipline.getCourseArea().getCourse() + " - " + discipline.getCourseArea().getArea();
+            CourseArea courseArea = discipline.getCourseArea();
+            courseAreaId = courseArea.getId();
+            courseName = courseArea.getCourse(); 
+            areaName = courseArea.getArea(); 
         }
 
         return new DisciplineRepresentation(
@@ -175,8 +180,9 @@ public class DisciplineService {
                 discipline.getDisciplineName(),
                 discipline.getDescription(),
                 courseAreaId,
-                courseAreaName,
-                discipline.getCreatedAt(),
-                discipline.getUpdatedAt());
+                areaName, 
+                courseName 
+
+        );
     }
 }

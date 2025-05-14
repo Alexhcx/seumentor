@@ -2,28 +2,23 @@ package com.projetointegrador.seumentor.course.api.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.time.LocalDateTime;
-
 @Schema(description = "Representação dos dados de uma Disciplina")
 public record DisciplineRepresentation(
-        @Schema(description = "ID único da Disciplina", example = "25")
-        Long id,
+        @Schema(description = "ID único da Disciplina", example = "1")
+        Long disciplineId,
 
-        @Schema(description = "Nome da disciplina", example = "Banco de Dados II")
+        @Schema(description = "Nome da disciplina", example = "ALGORITMOS")
         String disciplineName,
 
-        @Schema(description = "Descrição da disciplina", example = "Modelagem de dados, SQL avançado, NoSQL.")
+        @Schema(description = "Descrição da disciplina", example = "Introdução à lógica de programação e construção de algoritmos.")
         String description,
 
-        @Schema(description = "ID da Área de Curso associada", example = "8")
+        @Schema(description = "ID da Área de Curso associada", example = "1")
         Long courseAreaId,
 
-        @Schema(description = "Nome completo da Área de Curso associada (Curso - Área)", example = "Sistemas de Informação - Banco de Dados")
-        String courseAreaName,
+        @Schema(description = "Área do curso", example = "BÁSICO I")
+        String area,
 
-        @Schema(description = "Data e hora de criação do registro", example = "2023-11-01T09:15:00")
-        LocalDateTime createdAt,
-
-        @Schema(description = "Data e hora da última atualização do registro", example = "2023-11-05T14:00:00")
-        LocalDateTime updatedAt
+        @Schema(description = "Nome do curso", example = "Análise e Desenvolvimento de Sistemas")
+        String courseName
 ) {}
