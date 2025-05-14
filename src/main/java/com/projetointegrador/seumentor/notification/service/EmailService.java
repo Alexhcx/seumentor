@@ -28,7 +28,7 @@ public class EmailService {
     @Value("${app.nomeProjeto:SEU MENTOR}")
     private String nomeProjeto;
 
-    @Value("${app.url.base:http://localhost:8080}")
+    @Value("${app.url.base:http://localhost:3000}")
     private String baseUrl;
 
     @Value("${app.email.from:seumentor0@gmail.com}")

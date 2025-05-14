@@ -31,7 +31,7 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
 
     private final UserRepository userRepository;
     private final MentorAvailabilityRepository mentorAvailabilityRepository;
-    private TutoringQuery tutoringQuery; // Make it non-final
+    private TutoringQuery tutoringQuery;
     private static final Logger log = LoggerFactory.getLogger(UserQueryAdapter.class);
 
     @Autowired
@@ -332,7 +332,7 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
                 availability.getTutoringClassType());
     }
 
-    private String mapJavaDayOfWeekToDayWeekName(java.time.DayOfWeek javaDayOfWeek) { // Ensure correct DayOfWeek import
+    private String mapJavaDayOfWeekToDayWeekName(java.time.DayOfWeek javaDayOfWeek) {
         return switch (javaDayOfWeek) {
             case MONDAY -> DayWeek.SEGUNDA_FEIRA.name();
             case TUESDAY -> DayWeek.TERCA_FEIRA.name();

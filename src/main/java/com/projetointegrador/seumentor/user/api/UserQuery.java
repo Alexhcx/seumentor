@@ -6,7 +6,6 @@ import java.util.Optional;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.MentorProfileRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRepresentation; // Importar
-import com.projetointegrador.seumentor.user.api.dtos.UserProfileDetailedRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
 import com.projetointegrador.seumentor.user.model.DayWeek;
 import com.projetointegrador.seumentor.user.model.MentorAvailability;
