@@ -5,7 +5,11 @@ import com.projetointegrador.seumentor.common.util.CPFUtils;
 import com.projetointegrador.seumentor.course.model.CourseArea;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
+import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
+import com.projetointegrador.seumentor.tutoring.model.Tutoring;
+import com.projetointegrador.seumentor.tutoring.model.TutoringParticipants;
+import com.projetointegrador.seumentor.tutoring.repository.TutoringParticipantsRepository;
 import com.projetointegrador.seumentor.user.api.UserAvailabilityFinder;
 import com.projetointegrador.seumentor.user.api.UserQuery;
 import com.projetointegrador.seumentor.user.api.dtos.*;
@@ -23,6 +27,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -31,13 +36,21 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
 
     private final UserRepository userRepository;
     private final MentorAvailabilityRepository mentorAvailabilityRepository;
+    private final TutoringParticipantsRepository tutoringParticipantsRepository;
     private TutoringQuery tutoringQuery;
+
+    private static final DateTimeFormatter ADAPTER_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter ADAPTER_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     private static final Logger log = LoggerFactory.getLogger(UserQueryAdapter.class);
 
     @Autowired
-    public UserQueryAdapter(UserRepository userRepository, MentorAvailabilityRepository mentorAvailabilityRepository) {
+    public UserQueryAdapter(UserRepository userRepository,
+            MentorAvailabilityRepository mentorAvailabilityRepository,
+            TutoringParticipantsRepository tutoringParticipantsRepository) {
         this.userRepository = userRepository;
         this.mentorAvailabilityRepository = mentorAvailabilityRepository;
+        this.tutoringParticipantsRepository = tutoringParticipantsRepository;
     }
 
     @Autowired
@@ -110,7 +123,9 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
         try {
             return mentorAvailabilityRepository.findByDayOfWeek(dayOfWeek);
         } catch (Exception e) {
-            log.error("Adapter (Impl UserAvailabilityFinder): Error fetching availabilities from repository for day {}: {}", dayOfWeek, e.getMessage(), e);
+            log.error(
+                    "Adapter (Impl UserAvailabilityFinder): Error fetching availabilities from repository for day {}: {}",
+                    dayOfWeek, e.getMessage(), e);
             return Collections.emptyList();
         }
     }
@@ -132,17 +147,34 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TutoringRepresentation> getUserParticipationSessions(Long userId) {
-        log.debug("Adapter: Getting participation sessions for user ID (as mentee): {}", userId);
-        if (this.tutoringQuery == null) {
-            log.error("TutoringQuery is not injected in UserQueryAdapter for getUserParticipationSessions");
-            throw new IllegalStateException("TutoringQuery service not available");
-        }
+    public List<TutoringParticipationRepresentation> getUserParticipationSessions(Long userId) {
+        log.debug(
+                "Adapter: Obtendo sessões de participação para o usuário ID: {} usando TutoringParticipationRepresentation",
+                userId);
+
+        // Verifica se o usuário existe primeiro
         if (!userRepository.existsById(userId)) {
-            log.warn("Adapter: User not found with ID: {}", userId);
+            log.warn("Adapter: Usuário com ID: {} não encontrado ao buscar sessões de participação.", userId);
             throw new UserNotFoundException("Usuário não encontrado com ID: " + userId);
         }
-        return tutoringQuery.findAllTutoringsByParticipantId(userId);
+
+        // Busca todas as participações (TutoringParticipants) para o userId
+        List<TutoringParticipants> participations = tutoringParticipantsRepository.findByUserId(userId);
+
+        if (participations.isEmpty()) {
+            log.debug("Adapter: Nenhuma sessão de participação encontrada para o usuário ID: {}", userId);
+            return Collections.emptyList();
+        }
+
+        // Mapeia cada entidade Tutoring (obtida de TutoringParticipants) para
+        // TutoringParticipationRepresentation
+        return participations.stream()
+                .map(TutoringParticipants::getTutoring) // Obtém a entidade Tutoring de cada participação
+                .filter(Objects::nonNull) // Garante que a tutoria associada não é nula
+                .distinct() // Evita duplicatas se houver várias entradas de participação para a mesma
+                            // tutoria (improvável)
+                .map(this::mapToTutoringParticipationRepresentation) // Usa o novo método de mapeamento
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -163,7 +195,8 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
                 .filter(avail -> avail.getDiscipline() != null)
                 .collect(Collectors.groupingBy(MentorAvailability::getDiscipline));
 
-        List<MentorDisciplineAvailabilityRepresentation> disciplineAvailabilities = groupedByDiscipline.entrySet().stream()
+        List<MentorDisciplineAvailabilityRepresentation> disciplineAvailabilities = groupedByDiscipline.entrySet()
+                .stream()
                 .map(entry -> {
                     Discipline discipline = entry.getKey();
                     CourseArea courseArea = discipline.getCourseArea(); // Assuming Discipline has getCourseArea()
@@ -174,15 +207,13 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
                             .map(avail -> new AvailabilitySlotRepresentation(
                                     avail.getDayOfWeek(),
                                     avail.getStartTime(),
-                                    avail.getEndTime()
-                            ))
+                                    avail.getEndTime()))
                             .collect(Collectors.toList());
 
                     return new MentorDisciplineAvailabilityRepresentation(
                             disciplineName,
                             courseName,
-                            slots
-                    );
+                            slots);
                 })
                 .sorted(Comparator.comparing(MentorDisciplineAvailabilityRepresentation::disciplineName))
                 .collect(Collectors.toList());
@@ -193,8 +224,7 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
                 user.getId(),
                 user.getFirstName(),
                 user.getLastName(),
-                disciplineAvailabilities
-        );
+                disciplineAvailabilities);
         return Optional.of(profile);
     }
 
@@ -230,35 +260,37 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
         List<MentorProfileRepresentation> mentorProfiles = mentorIds.stream()
                 .map(id -> {
                     User mentor = mentorMap.get(id);
-                    if (mentor == null) return null;
+                    if (mentor == null)
+                        return null;
 
-                    List<MentorAvailability> mentorAvailabilities = availabilitiesByMentorId.getOrDefault(id, Collections.emptyList());
+                    List<MentorAvailability> mentorAvailabilities = availabilitiesByMentorId.getOrDefault(id,
+                            Collections.emptyList());
 
                     Map<Discipline, List<MentorAvailability>> groupedByDiscipline = mentorAvailabilities.stream()
                             .filter(avail -> avail.getDiscipline() != null)
                             .collect(Collectors.groupingBy(MentorAvailability::getDiscipline));
 
-                    List<MentorDisciplineAvailabilityRepresentation> disciplineAvailabilities = groupedByDiscipline.entrySet().stream()
+                    List<MentorDisciplineAvailabilityRepresentation> disciplineAvailabilities = groupedByDiscipline
+                            .entrySet().stream()
                             .map(entry -> {
                                 Discipline discipline = entry.getKey();
-                                CourseArea courseArea = discipline.getCourseArea(); // Assuming Discipline has getCourseArea()
-                                String courseName = (courseArea != null) ? courseArea.getCourse() : "[Curso não definido]";
+                                CourseArea courseArea = discipline.getCourseArea(); // Assuming Discipline has
+                                                                                    // getCourseArea()
+                                String courseName = (courseArea != null) ? courseArea.getCourse()
+                                        : "[Curso não definido]";
                                 String disciplineName = discipline.getDisciplineName();
-
 
                                 List<AvailabilitySlotRepresentation> slots = entry.getValue().stream()
                                         .map(avail -> new AvailabilitySlotRepresentation(
                                                 avail.getDayOfWeek(),
                                                 avail.getStartTime(),
-                                                avail.getEndTime()
-                                        ))
+                                                avail.getEndTime()))
                                         .collect(Collectors.toList());
 
                                 return new MentorDisciplineAvailabilityRepresentation(
                                         disciplineName,
                                         courseName,
-                                        slots
-                                );
+                                        slots);
                             })
                             .sorted(Comparator.comparing(MentorDisciplineAvailabilityRepresentation::disciplineName))
                             .collect(Collectors.toList());
@@ -267,14 +299,81 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
                             mentor.getId(),
                             mentor.getFirstName(),
                             mentor.getLastName(),
-                            disciplineAvailabilities
-                    );
+                            disciplineAvailabilities);
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         log.info("Adapter: Successfully mapped {} mentor profiles.", mentorProfiles.size());
         return mentorProfiles;
+    }
+
+    private TutoringParticipationRepresentation mapToTutoringParticipationRepresentation(Tutoring tutoring) {
+        if (tutoring == null) {
+            return null;
+        }
+
+        String mentorName = "[Mentor Inválido]";
+        Long mentorId = null;
+        if (tutoring.getMentor() != null) {
+            try {
+                mentorId = tutoring.getMentor().getId();
+                mentorName = tutoring.getMentor().getFirstName() + " " + tutoring.getMentor().getLastName();
+            } catch (EntityNotFoundException e) {
+                log.warn(
+                        "Mentor (ID: {}) associado à tutoria {} não encontrado durante o mapeamento para participação.",
+                        tutoring.getMentor() != null ? tutoring.getMentor().getId() : "null", tutoring.getId());
+            }
+        }
+
+        String disciplineName = "[Disciplina Inválida]";
+        Long disciplineId = null;
+        if (tutoring.getDiscipline() != null) {
+            try {
+                disciplineId = tutoring.getDiscipline().getId();
+                disciplineName = tutoring.getDiscipline().getDisciplineName();
+            } catch (EntityNotFoundException e) {
+                log.warn(
+                        "Disciplina (ID: {}) associada à tutoria {} não encontrada durante o mapeamento para participação.",
+                        tutoring.getDiscipline() != null ? tutoring.getDiscipline().getId() : "null", tutoring.getId());
+            }
+        }
+
+        List<String> topicsList = new ArrayList<>();
+        int numberOfParticipants = 0;
+        if (tutoring.getTopics() != null && !tutoring.getTopics().isEmpty()) {
+            numberOfParticipants = tutoring.getTopics().size();
+            topicsList = tutoring.getTopics().stream()
+                    .map(TutoringParticipants::getTopic)
+                    .collect(Collectors.toList());
+        }
+
+        String formattedStartTime = tutoring.getStartTime() != null
+                ? tutoring.getStartTime().format(ADAPTER_TIME_FORMATTER)
+                : null;
+        String formattedEndTime = tutoring.getEndTime() != null ? tutoring.getEndTime().format(ADAPTER_TIME_FORMATTER)
+                : null;
+        String formattedTutoringDate = tutoring.getTutoringDate() != null
+                ? tutoring.getTutoringDate().format(ADAPTER_DATE_FORMATTER)
+                : null;
+
+        return new TutoringParticipationRepresentation(
+                tutoring.getId(),
+                mentorId,
+                mentorName,
+                disciplineId,
+                disciplineName,
+                tutoring.getTutoringClassType(),
+                tutoring.getStatus(),
+                formattedStartTime,
+                formattedEndTime,
+                formattedTutoringDate,
+                tutoring.getLocal(),
+                tutoring.getLinkVideo(),
+                tutoring.getMaxParticipants(),
+                numberOfParticipants,
+                tutoring.getIsChatEnable(),
+                topicsList);
     }
 
     private UserRepresentation mapToRepresentation(User user) {
@@ -314,7 +413,8 @@ public class UserQueryAdapter implements UserQuery, UserAvailabilityFinder {
             log.warn("Adapter: Disciplina associada à disponibilidade {} não encontrada.", availability.getId());
             disciplineName = "[Disciplina inválida/removida]";
         } catch (Exception e) {
-            log.error("Adapter: Erro ao acessar disciplina para disponibilidade {}: {}", availability.getId(), e.getMessage());
+            log.error("Adapter: Erro ao acessar disciplina para disponibilidade {}: {}", availability.getId(),
+                    e.getMessage());
             disciplineName = "[Erro ao carregar disciplina]";
         }
 

@@ -1,6 +1,7 @@
 package com.projetointegrador.seumentor.user.controller;
 
 import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException;
+import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.user.api.UserQuery;
 import com.projetointegrador.seumentor.user.api.dtos.*;
@@ -61,7 +62,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("#id.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username, adjust if needed
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Busca um usuário pelo ID", description = "Retorna a representação de um usuário específico.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Usuário encontrado",
@@ -85,7 +86,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}/mentor_availability")
-    @PreAuthorize("#userId.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Lista as disponibilidades de um usuário", description = "Retorna todos os horários de disponibilidade registrados para um usuário específico.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Disponibilidades listadas com sucesso",
@@ -137,7 +138,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/mentoring-sessions")
-    @PreAuthorize("#id.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Lista as mentorias em que o usuário é o mentor",
             description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado atua como mentor.")
     @ApiResponses(value = {
@@ -165,29 +166,30 @@ public class UserController {
     }
 
     @GetMapping("/{id}/participation-sessions")
-    @PreAuthorize("#id.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Lista as mentorias em que o usuário é participante",
-            description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado está inscrito como participante (mentorado).")
+            description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado está inscrito como participante (mentorado), com foco nos tópicos e quantidade de participantes.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de mentorias (como participante) retornada com sucesso",
                     content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = TutoringRepresentation.class)))),
+                            // Altere o schema para o novo DTO
+                            array = @ArraySchema(schema = @Schema(implementation = TutoringParticipationRepresentation.class)))),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
             @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
             @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
             @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
     })
-    public ResponseEntity<List<TutoringRepresentation>> getUserParticipationSessions(
+    public ResponseEntity<List<TutoringParticipationRepresentation>> getUserParticipationSessions(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {
-        log.info("Controller: Request for participation sessions for user ID: {}", id);
+        log.info("Controller: Requisição para sessões de participação do usuário ID: {} usando TutoringParticipationRepresentation", id);
         try {
-            List<TutoringRepresentation> sessions = userQuery.getUserParticipationSessions(id);
+            List<TutoringParticipationRepresentation> sessions = userQuery.getUserParticipationSessions(id);
             return ResponseEntity.ok(sessions);
         } catch (UserNotFoundException e) {
-            log.warn("Controller: User not found when fetching participation sessions for user ID {}: {}", id, e.getMessage());
+            log.warn("Controller: Usuário não encontrado ao buscar sessões de participação para o ID {}: {}", id, e.getMessage());
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
         } catch (Exception e) {
-            log.error("Controller: Error fetching participation sessions for user ID {}: {}", id, e.getMessage(), e);
+            log.error("Controller: Erro ao buscar sessões de participação para o usuário ID {}: {}", id, e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar sessões de participação em mentoria", e);
         }
     }
@@ -210,7 +212,7 @@ public class UserController {
     }
 
     @PostMapping("/{userId}/favorite-disciplines/{disciplineId}")
-    @PreAuthorize("#userId.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Adiciona uma disciplina como favorita para o usuário", description = "Marca uma disciplina específica como favorita.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Disciplina adicionada aos favoritos com sucesso", content = @Content),
@@ -240,7 +242,7 @@ public class UserController {
     }
 
     @PostMapping("/{userId}/mentor")
-    @PreAuthorize("#userId.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Se torna mentor de uma disciplina e adiciona um horário de disponibilidade", description = "Registra um novo período em que um usuário (mentor) está disponível.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Disponibilidade criada com sucesso",
@@ -274,7 +276,7 @@ public class UserController {
     }
 
     @PostMapping("/{id}/change-password")
-    @PreAuthorize("#id.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Altera a senha do usuário logado", description = "Permite que o usuário autenticado altere sua própria senha.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Senha alterada com sucesso",
@@ -312,7 +314,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("#id.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Atualiza um usuário", description = "Atualiza os dados de um usuário existente baseado no ID fornecido.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Usuário atualizado com sucesso",
@@ -344,7 +346,7 @@ public class UserController {
     }
 
     @PatchMapping("/{userId}/availabilities/{availabilityId}/status")
-    @PreAuthorize("#userId.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Atualiza o status de uma disponibilidade específica", description = "Ativa ou desativa um horário de disponibilidade. Se ativado, desativa automaticamente outros horários conflitantes do mesmo usuário no mesmo dia.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Status da disponibilidade atualizado com sucesso. Retorna a lista completa e atualizada de disponibilidades do usuário.",
@@ -381,7 +383,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("#id.toString() == authentication.name or hasAuthority('ADMIN')") // Assuming ID is username
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Exclui um usuário e sua conta", description = "Exclui um usuário e sua conta permanentemente baseado no ID fornecido.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Usuário excluído com sucesso", content = @Content),
@@ -407,7 +409,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}/favorite-disciplines/{disciplineId}")
-    @PreAuthorize("#userId.toString() == authentication.name or hasAuthority('ADMIN')")
+    @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Remove uma disciplina dos favoritos do usuário", description = "Desmarca uma disciplina específica como favorita.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Disciplina removida dos favoritos com sucesso", content = @Content),
@@ -433,7 +435,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{userId}/availabilities/{availabilityId}")
-    @PreAuthorize("#userId.toString() == authentication.name or hasAuthority('ADMIN')")
+    @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Exclui uma disponibilidade específica", description = "Remove um horário de disponibilidade.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Disponibilidade excluída com sucesso", content = @Content),

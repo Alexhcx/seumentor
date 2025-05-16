@@ -3,6 +3,7 @@ package com.projetointegrador.seumentor.user.api;
 import java.util.List;
 import java.util.Optional;
 
+import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.MentorProfileRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRepresentation; // Importar
@@ -45,6 +46,5 @@ public interface UserQuery {
     List<TutoringRepresentation> getUserMentoringSessions(Long userId);
 
     @Transactional(readOnly = true)
-    List<TutoringRepresentation> getUserParticipationSessions(Long userId);
+    List<TutoringParticipationRepresentation> getUserParticipationSessions(Long userId);
 }
-
