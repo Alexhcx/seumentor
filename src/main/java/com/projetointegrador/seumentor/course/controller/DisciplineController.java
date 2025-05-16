@@ -73,7 +73,7 @@ public class DisciplineController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = DisciplineRepresentation.class))),
             @ApiResponse(responseCode = "404", description = "Disciplina não encontrada", content = @Content),
             @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content), // Assuming @PreAuthorize might be added later
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
             @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
     })
     public ResponseEntity<DisciplineRepresentation> getDisciplineById(

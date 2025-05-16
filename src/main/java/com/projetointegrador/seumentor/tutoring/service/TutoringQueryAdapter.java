@@ -434,7 +434,7 @@ public class TutoringQueryAdapter implements TutoringQuery {
         Long mentorId = null;
         if (tutoring.getMentor() != null) {
             try {
-                mentorId = tutoring.getMentor().getId(); // Eager fetch or already loaded
+                mentorId = tutoring.getMentor().getId();
                 mentorName = tutoring.getMentor().getFirstName() + " " + tutoring.getMentor().getLastName();
             } catch (EntityNotFoundException e) {
                 log.warn("Mentor associated with tutoring {} not found during mapping.", tutoring.getId());
