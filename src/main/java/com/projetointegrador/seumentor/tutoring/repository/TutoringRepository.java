@@ -1,7 +1,7 @@
 package com.projetointegrador.seumentor.tutoring.repository;
 
 import com.projetointegrador.seumentor.course.model.Discipline;
-import com.projetointegrador.seumentor.tutoring.model.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 import com.projetointegrador.seumentor.user.model.User;
 

@@ -1,4 +1,4 @@
-package com.projetointegrador.seumentor.tutoring.model;
+package com.projetointegrador.seumentor.tutoring.enums;
 
 public enum StatusTutoring {
   A_MARCAR,

@@ -1,4 +1,4 @@
-package com.projetointegrador.seumentor.user.model;
+package com.projetointegrador.seumentor.common.enums;
 
 public enum DayWeek {
     SEGUNDA_FEIRA,

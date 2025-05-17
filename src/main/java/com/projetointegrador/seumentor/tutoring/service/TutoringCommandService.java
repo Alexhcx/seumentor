@@ -1,23 +1,22 @@
 package com.projetointegrador.seumentor.tutoring.service;
 
+import com.projetointegrador.seumentor.common.enums.DayWeek;
 import com.projetointegrador.seumentor.course.api.DisciplineQuery;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.tutoring.api.TutoringCommand;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
 import com.projetointegrador.seumentor.tutoring.api.dto.*;
+import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringOperationException;
 import com.projetointegrador.seumentor.tutoring.model.*;
+import com.projetointegrador.seumentor.tutoring.repository.MentorAvailabilityRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringParticipantsRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringRatingRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringRepository;
 import com.projetointegrador.seumentor.user.api.UserQuery;
-import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRepresentation;
+import com.projetointegrador.seumentor.user.enums.Role;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
-import com.projetointegrador.seumentor.user.model.DayWeek;
-import com.projetointegrador.seumentor.user.model.MentorAvailability;
-import com.projetointegrador.seumentor.user.model.Role;
 import com.projetointegrador.seumentor.user.model.User;
-import com.projetointegrador.seumentor.user.repository.MentorAvailabilityRepository;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;

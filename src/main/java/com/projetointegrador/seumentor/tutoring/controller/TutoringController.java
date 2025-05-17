@@ -4,9 +4,9 @@ import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundExcept
 import com.projetointegrador.seumentor.tutoring.api.TutoringCommand;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
 import com.projetointegrador.seumentor.tutoring.api.dto.*;
+import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringOperationException;
-import com.projetointegrador.seumentor.tutoring.model.StatusTutoring;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

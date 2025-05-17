@@ -1,6 +1,5 @@
-package com.projetointegrador.seumentor.user.api.dtos;
+package com.projetointegrador.seumentor.tutoring.api.dto;
 
-import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation; // Usaremos este DTO
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 

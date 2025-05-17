@@ -1,8 +1,12 @@
 package com.projetointegrador.seumentor.user.controller;
 
 import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorProfileRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
+import com.projetointegrador.seumentor.tutoring.api.dto.UpdateAvailabilityStatusRequest;
+import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
+import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRequest;
 import com.projetointegrador.seumentor.user.api.UserQuery;
 import com.projetointegrador.seumentor.user.api.dtos.*;
 import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;

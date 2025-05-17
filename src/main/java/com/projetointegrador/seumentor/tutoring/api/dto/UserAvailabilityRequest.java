@@ -1,7 +1,8 @@
-package com.projetointegrador.seumentor.user.api.dtos;
+package com.projetointegrador.seumentor.tutoring.api.dto;
 
+import com.projetointegrador.seumentor.common.enums.DayWeek;
 import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
-import com.projetointegrador.seumentor.user.model.DayWeek;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalTime;

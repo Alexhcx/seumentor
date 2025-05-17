@@ -1,4 +1,4 @@
-package com.projetointegrador.seumentor.user.api;
+package com.projetointegrador.seumentor.tutoring.api;
 
 public interface UserAvailabilityQuery {
   boolean existsAvailabilityForDiscipline(Long disciplineId);

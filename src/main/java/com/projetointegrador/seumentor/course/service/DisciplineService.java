@@ -9,7 +9,7 @@ import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.course.repository.CourseAreaRepository;
 import com.projetointegrador.seumentor.course.repository.DisciplineRepository;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
-import com.projetointegrador.seumentor.user.api.UserAvailabilityQuery;
+import com.projetointegrador.seumentor.tutoring.api.UserAvailabilityQuery;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;

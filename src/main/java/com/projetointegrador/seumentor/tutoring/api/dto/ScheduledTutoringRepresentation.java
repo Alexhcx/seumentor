@@ -1,6 +1,6 @@
 package com.projetointegrador.seumentor.tutoring.api.dto;
 
-import com.projetointegrador.seumentor.tutoring.model.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
 import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
 import io.swagger.v3.oas.annotations.media.Schema;
 

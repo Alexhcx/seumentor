@@ -1,18 +1,18 @@
 package com.projetointegrador.seumentor.tutoring.service;
 
+import com.projetointegrador.seumentor.common.enums.DayWeek;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
+import com.projetointegrador.seumentor.tutoring.api.UserAvailabilityFinder;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipantInfo;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRatingRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
-import com.projetointegrador.seumentor.tutoring.model.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 import com.projetointegrador.seumentor.tutoring.model.TutoringRating;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringParticipantsRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringRatingRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringRepository;
-import com.projetointegrador.seumentor.user.api.UserAvailabilityFinder;
-import com.projetointegrador.seumentor.user.model.DayWeek;
-import com.projetointegrador.seumentor.user.model.MentorAvailability;
 import com.projetointegrador.seumentor.user.model.User;
 import com.projetointegrador.seumentor.tutoring.model.TutoringParticipants;
 import jakarta.persistence.EntityNotFoundException;

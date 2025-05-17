@@ -1,7 +1,8 @@
-package com.projetointegrador.seumentor.user.model;
+package com.projetointegrador.seumentor.course.model;
 
 import com.projetointegrador.seumentor.common.model.BaseEntity;
-import com.projetointegrador.seumentor.course.model.Discipline;
+import com.projetointegrador.seumentor.user.model.User;
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;

@@ -3,13 +3,13 @@ package com.projetointegrador.seumentor.user.api;
 import java.util.List;
 import java.util.Optional;
 
+import com.projetointegrador.seumentor.common.enums.DayWeek;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorProfileRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
-import com.projetointegrador.seumentor.user.api.dtos.MentorProfileRepresentation;
-import com.projetointegrador.seumentor.user.api.dtos.UserAvailabilityRepresentation; // Importar
+import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
+import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
-import com.projetointegrador.seumentor.user.model.DayWeek;
-import com.projetointegrador.seumentor.user.model.MentorAvailability;
 import com.projetointegrador.seumentor.user.model.User;
 import org.springframework.transaction.annotation.Transactional;
 

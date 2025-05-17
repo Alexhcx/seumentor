@@ -1,7 +1,8 @@
-package com.projetointegrador.seumentor.user.service;
+package com.projetointegrador.seumentor.tutoring.service;
 
-import com.projetointegrador.seumentor.user.api.UserAvailabilityQuery;
-import com.projetointegrador.seumentor.user.repository.MentorAvailabilityRepository;
+import com.projetointegrador.seumentor.tutoring.api.UserAvailabilityQuery;
+import com.projetointegrador.seumentor.tutoring.repository.MentorAvailabilityRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component; // Ou @Service
 import org.springframework.transaction.annotation.Transactional;

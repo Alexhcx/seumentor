@@ -2,7 +2,7 @@ package com.projetointegrador.seumentor.tutoring.api;
 
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRatingRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
-import com.projetointegrador.seumentor.tutoring.model.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
 import com.projetointegrador.seumentor.tutoring.model.TutoringRating;
 import org.springframework.transaction.annotation.Transactional;
 

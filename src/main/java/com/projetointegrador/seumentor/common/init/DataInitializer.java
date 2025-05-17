@@ -1,20 +1,20 @@
 package com.projetointegrador.seumentor.common.init;
 
+import com.projetointegrador.seumentor.common.enums.DayWeek;
 import com.projetointegrador.seumentor.course.model.CourseArea;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.course.repository.CourseAreaRepository;
 import com.projetointegrador.seumentor.course.repository.DisciplineRepository;
-import com.projetointegrador.seumentor.tutoring.model.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
 import com.projetointegrador.seumentor.tutoring.model.TutoringParticipants;
+import com.projetointegrador.seumentor.tutoring.repository.MentorAvailabilityRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringParticipantsRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringRepository;
-import com.projetointegrador.seumentor.user.model.DayWeek;
-import com.projetointegrador.seumentor.user.model.MentorAvailability;
-import com.projetointegrador.seumentor.user.model.Role;
+import com.projetointegrador.seumentor.user.enums.Role;
 import com.projetointegrador.seumentor.user.model.User;
-import com.projetointegrador.seumentor.user.repository.MentorAvailabilityRepository;
 import com.projetointegrador.seumentor.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -155,8 +155,6 @@ public class DataInitializer implements CommandLineRunner {
             log.info(">>> Base de dados já contém áreas de curso. Nenhuma ação necessária para áreas de curso e disciplinas.");
         }
 
-        // Bloco para criar dados de teste para visualização no front-end
-        // Verifica se as mentorias de teste já foram criadas para evitar duplicidade
         if (tutoringRepository.count() < 2 && userRepository.findByEmail("ana.oliveira@example.com").isEmpty()) {
             log.info(">>> Criando dados de teste para mentoria (Ana Julia e Bruno Costa)...");
 

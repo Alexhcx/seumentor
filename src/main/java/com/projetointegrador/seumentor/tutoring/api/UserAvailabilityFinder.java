@@ -1,7 +1,8 @@
-package com.projetointegrador.seumentor.user.api;
+package com.projetointegrador.seumentor.tutoring.api;
 
-import com.projetointegrador.seumentor.user.model.DayWeek;
-import com.projetointegrador.seumentor.user.model.MentorAvailability;
+import com.projetointegrador.seumentor.common.enums.DayWeek;
+import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
+
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;

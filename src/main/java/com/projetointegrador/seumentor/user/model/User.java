@@ -1,7 +1,11 @@
 package com.projetointegrador.seumentor.user.model;
 
 import com.projetointegrador.seumentor.common.model.BaseEntity;
+import com.projetointegrador.seumentor.course.model.UserFavoriteDisciplines;
+import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
+import com.projetointegrador.seumentor.user.enums.Role;
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
