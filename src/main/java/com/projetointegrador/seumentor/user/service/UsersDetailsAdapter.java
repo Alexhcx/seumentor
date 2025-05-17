@@ -1,4 +1,4 @@
-package com.projetointegrador.seumentor.user.api;
+package com.projetointegrador.seumentor.user.service;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Optional;

@@ -18,29 +18,27 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TutoringRepository extends JpaRepository<Tutoring, Long>, JpaSpecificationExecutor<Tutoring> {
 
-  boolean existsByDisciplineId(Long disciplineId);
+    boolean existsByDisciplineId(Long disciplineId);
 
-  boolean existsByMentorAndDisciplineAndTutoringDateAndStartTimeAndEndTimeAndStatusNotIn(
-      User mentor,
-      Discipline discipline,
-      LocalDate tutoringDate,
-      LocalTime startTime,
-      LocalTime endTime,
-      List<StatusTutoring> excludedStatuses // e.g., CANCELADA, CONCLUIDA
-  );
+    boolean existsByMentorAndDisciplineAndTutoringDateAndStartTimeAndEndTimeAndStatusNotIn(
+            User mentor,
+            Discipline discipline,
+            LocalDate tutoringDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            List<StatusTutoring> excludedStatuses 
+    );
 
-  // CORRIGIDO/RENOMEADO: Busca mentorias conflitantes com status ESPECÍFICOS
-  // (ativos/pendentes)
-  @Query("SELECT t FROM Tutoring t LEFT JOIN t.topics tp " +
-      "WHERE t.tutoringDate = :date " +
-      "AND t.status IN :statusesToConsider " + // ALTERADO PARA IN
-      "AND ((t.mentor = :user) OR (tp.user = :user)) " +
-      "AND (t.startTime < :endTime AND t.endTime > :startTime)") // Lógica de sobreposição
-  List<Tutoring> findConflictingTutoringsForUserWithSpecificStatuses( // Nome do método atualizado
-      @Param("user") User user,
-      @Param("date") LocalDate date,
-      @Param("startTime") LocalTime startTime,
-      @Param("endTime") LocalTime endTime,
-      @Param("statusesToConsider") List<StatusTutoring> statusesToConsider // Parâmetro reflete a intenção
-  );
+    @Query("SELECT t FROM Tutoring t LEFT JOIN t.topics tp " +
+            "WHERE t.tutoringDate = :date " +
+            "AND t.status IN :statusesToConsider " + 
+            "AND ((t.mentor = :user) OR (tp.user = :user)) " +
+            "AND (t.startTime < :endTime AND t.endTime > :startTime)") 
+    List<Tutoring> findConflictingTutoringsForUserWithSpecificStatuses( 
+            @Param("user") User user,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime,
+            @Param("statusesToConsider") List<StatusTutoring> statusesToConsider 
+    );
 }

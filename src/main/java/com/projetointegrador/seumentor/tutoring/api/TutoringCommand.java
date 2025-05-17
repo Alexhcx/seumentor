@@ -1,11 +1,15 @@
+// src/main/java/com/projetointegrador/seumentor/tutoring/api/TutoringCommand.java
 package com.projetointegrador.seumentor.tutoring.api;
 
 import com.projetointegrador.seumentor.tutoring.api.dto.*;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringOperationException;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
-import org.springframework.security.access.AccessDeniedException; // Importar para exceção
-import org.springframework.security.core.Authentication; // Importar
+import com.projetointegrador.seumentor.tutoring.exception.AvailabilityNotFoundException; // Adicionado
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+
+import java.util.List;
 
 public interface TutoringCommand {
 
@@ -34,11 +38,25 @@ public interface TutoringCommand {
 
         void deleteTutoringRating(Long ratingId) throws TutoringOperationException;
 
-        void removeParticipant(Long tutoringId, Long userId, Authentication authentication);
+        void removeParticipant(Long tutoringId, Long userId, Authentication authentication)
+                        throws TutoringNotFoundException, UserNotFoundException, TutoringOperationException,
+                        AccessDeniedException;
 
         TutoringRepresentation cancelMentorTutoring(Long userId, Long tutoringId, boolean deactivateAvailability,
-                        Authentication authentication) 
+                        Authentication authentication)
                         throws TutoringNotFoundException, TutoringOperationException, AccessDeniedException,
                         UserNotFoundException;
 
+
+        UserAvailabilityRepresentation addMentorAvailability(Long mentorId, UserAvailabilityRequest request)
+                        throws UserNotFoundException, TutoringOperationException;
+
+        List<UserAvailabilityRepresentation> updateMentorAvailabilityStatus(Long mentorId, Long availabilityId,
+                        UpdateAvailabilityStatusRequest request)
+                        throws UserNotFoundException, AvailabilityNotFoundException, TutoringOperationException,
+                        AccessDeniedException;
+
+        void deleteMentorAvailability(Long mentorId, Long availabilityId)
+                        throws UserNotFoundException, AvailabilityNotFoundException, TutoringOperationException,
+                        AccessDeniedException;
 }

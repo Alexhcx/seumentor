@@ -11,9 +11,9 @@ import com.projetointegrador.seumentor.security.auth.AuthenticationRequest;
 import com.projetointegrador.seumentor.security.auth.AuthenticationResponse;
 import com.projetointegrador.seumentor.security.auth.RegisterRequest;
 import com.projetointegrador.seumentor.user.api.UserCommand;
-import com.projetointegrador.seumentor.user.api.UsersDetailsAdapter;
 import com.projetointegrador.seumentor.user.api.dtos.UserRegistrationRequest;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
+import com.projetointegrador.seumentor.user.service.UsersDetailsAdapter;
 
 import lombok.RequiredArgsConstructor;
 

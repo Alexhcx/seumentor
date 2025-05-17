@@ -5,6 +5,7 @@ import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.user.model.User;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -29,10 +30,16 @@ public interface MentorAvailabilityRepository extends JpaRepository<MentorAvaila
 
         List<MentorAvailability> findByUserIdAndDayOfWeek(Long userId, DayWeek dayOfWeek);
 
+        @EntityGraph(attributePaths = { "user", "discipline" })
         List<MentorAvailability> findByDayOfWeek(DayWeek dayOfWeek);
 
-        // NOVO MÉTODO: Para verificar se existe uma disponibilidade ativa que cobre o
-        // horário da mentoria
+        boolean existsByUserAndDisciplineAndDayOfWeekAndStartTimeAndEndTime(
+                        User user,
+                        Discipline discipline,
+                        DayWeek dayOfWeek,
+                        LocalTime startTime,
+                        LocalTime endTime);
+
         @Query("SELECT ma FROM MentorAvailability ma " +
                         "WHERE ma.user = :mentor " +
                         "AND ma.discipline = :discipline " +

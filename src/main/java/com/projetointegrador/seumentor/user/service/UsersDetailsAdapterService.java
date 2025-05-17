@@ -1,6 +1,5 @@
 package com.projetointegrador.seumentor.user.service;
 
-import com.projetointegrador.seumentor.user.api.UsersDetailsAdapter;
 import com.projetointegrador.seumentor.user.repository.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;

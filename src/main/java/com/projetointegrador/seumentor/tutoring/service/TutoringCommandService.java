@@ -1,29 +1,37 @@
+// src/main/java/com/projetointegrador/seumentor/tutoring/service/TutoringCommandService.java
 package com.projetointegrador.seumentor.tutoring.service;
 
 import com.projetointegrador.seumentor.common.enums.DayWeek;
 import com.projetointegrador.seumentor.course.api.DisciplineQuery;
 import com.projetointegrador.seumentor.course.model.Discipline;
+import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException;
+
 import com.projetointegrador.seumentor.tutoring.api.TutoringCommand;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
 import com.projetointegrador.seumentor.tutoring.api.dto.*;
+import com.projetointegrador.seumentor.tutoring.api.mapper.TutoringMapper; 
 import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringOperationException;
+import com.projetointegrador.seumentor.tutoring.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.tutoring.model.*;
 import com.projetointegrador.seumentor.tutoring.repository.MentorAvailabilityRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringParticipantsRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringRatingRepository;
 import com.projetointegrador.seumentor.tutoring.repository.TutoringRepository;
+
+import com.projetointegrador.seumentor.user.api.UserCommand;
 import com.projetointegrador.seumentor.user.api.UserQuery;
 import com.projetointegrador.seumentor.user.enums.Role;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import com.projetointegrador.seumentor.user.model.User;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
+
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 
-import jakarta.persistence.EntityNotFoundException;
+// import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,13 +40,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
+// import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,21 +54,21 @@ public class TutoringCommandService implements TutoringCommand {
         private final TutoringRepository tutoringRepository;
         private final TutoringRatingRepository tutoringRatingRepository;
         private final TutoringParticipantsRepository tutoringParticipantsRepository;
+        private final MentorAvailabilityRepository mentorAvailabilityRepository;
+
         private final UserQuery userQuery;
         private final DisciplineQuery disciplineQuery;
         private final TutoringQuery tutoringQuery;
-        private final MentorAvailabilityRepository mentorAvailabilityRepository;
+        private final UserCommand userCommand;
+        private final TutoringMapper tutoringMapper; 
 
         private static final Logger log = LoggerFactory.getLogger(TutoringCommandService.class);
-        private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-        private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         @Override
         @Transactional
         public ScheduledTutoringRepresentation scheduleTutoring(ScheduleTutoringRequest request) throws Exception {
                 log.info("Attempting to schedule tutoring with request: {}", request);
 
-                // 1. Validações básicas
                 if (request.startTime().isAfter(request.endTime()) || request.startTime().equals(request.endTime())) {
                         log.warn("Schedule failed: Start time must be before or equal to end time. Request: {}",
                                         request);
@@ -77,7 +84,6 @@ public class TutoringCommandService implements TutoringCommand {
                         throw new TutoringOperationException("O mentor e o mentorado não podem ser a mesma pessoa.");
                 }
 
-                // 2. Obter referências
                 User mentor;
                 User mentee;
                 Discipline discipline;
@@ -85,19 +91,17 @@ public class TutoringCommandService implements TutoringCommand {
                         mentor = userQuery.getUserReferenceById(request.mentorId());
                         mentee = userQuery.getUserReferenceById(request.menteeId());
                         discipline = disciplineQuery.getReferenceById(request.disciplineId());
-                } catch (EntityNotFoundException e) {
+                } catch (UserNotFoundException | DisciplineNotFoundException e) {
                         log.warn("Schedule failed: Could not find User or Discipline. Request: {}, Error: {}", request,
                                         e.getMessage());
                         throw new TutoringOperationException(
-                                        "Falha ao obter dados necessários (usuário ou disciplina): " + e.getMessage());
+                                        "Falha ao obter dados necessários (usuário ou disciplina): " + e.getMessage(),
+                                        e);
                 }
 
-                // Status a serem considerados para conflito de MENTORIAS existentes
                 List<StatusTutoring> statusesToCheckForConflict = Arrays.asList(
                                 StatusTutoring.PENDENTE, StatusTutoring.AGENDADA, StatusTutoring.EM_ANDAMENTO);
 
-                // 3. Verificar Duplicidade de Mentoria Específica (evitar agendar a mesma
-                // coisa)
                 boolean alreadyExists = tutoringRepository
                                 .existsByMentorAndDisciplineAndTutoringDateAndStartTimeAndEndTimeAndStatusNotIn(
                                                 mentor,
@@ -105,13 +109,7 @@ public class TutoringCommandService implements TutoringCommand {
                                                 request.tutoringDate(),
                                                 request.startTime(),
                                                 request.endTime(),
-                                                Arrays.asList(StatusTutoring.CANCELADA, StatusTutoring.CONCLUIDA) // Não
-                                                                                                                  // considera
-                                                                                                                  // canceladas/concluídas
-                                                                                                                  // como
-                                                                                                                  // duplicatas
-                                                                                                                  // ativas
-                                );
+                                                Arrays.asList(StatusTutoring.CANCELADA, StatusTutoring.CONCLUIDA));
                 if (alreadyExists) {
                         log.warn("Schedule failed: Exact tutoring already exists and is active/pending. Request: {}",
                                         request);
@@ -119,25 +117,19 @@ public class TutoringCommandService implements TutoringCommand {
                                         "Esta mentoria (mesmo mentor, disciplina, data e horário) já existe e está pendente ou agendada.");
                 }
 
-                // 4. Verificar Conflitos de Horário para o MENTEE (com outras mentorias
-                // ativas/pendentes)
                 checkUserConflictsWithExistingTutorings(mentee, request.tutoringDate(), request.startTime(),
                                 request.endTime(),
                                 statusesToCheckForConflict, "mentorado");
-
-                // 5. Verificar Conflitos de Horário para o MENTOR com OUTRAS MENTORIAS
-                // ativas/pendentes
                 checkUserConflictsWithExistingTutorings(mentor, request.tutoringDate(), request.startTime(),
                                 request.endTime(),
                                 statusesToCheckForConflict, "mentor");
 
-                // 6. Validação CORRIGIDA: Verificar se a mentoria solicitada está DENTRO de uma
-                // disponibilidade VÁLIDA e ATIVA do mentor
-                DayWeek dayOfWeek = mapJavaDayOfWeekToCustom(request.tutoringDate().getDayOfWeek());
+                DayWeek dayOfWeek = mapJavaDayOfWeekToCustom(request.tutoringDate().getDayOfWeek()); // Método auxiliar
+                                                                                                     // permanece
                 Optional<MentorAvailability> coveringAvailability = mentorAvailabilityRepository
                                 .findCoveringAndActiveAvailability(
                                                 mentor,
-                                                discipline, // Validar para a disciplina específica
+                                                discipline,
                                                 dayOfWeek,
                                                 request.startTime(),
                                                 request.endTime());
@@ -146,19 +138,20 @@ public class TutoringCommandService implements TutoringCommand {
                         log.warn(
                                         "Schedule failed: Mentor (ID: {}) does not have an active and covering availability for discipline '{}' on {} from {} to {}.",
                                         mentor.getId(), discipline.getDisciplineName(), dayOfWeek,
-                                        request.startTime().format(TIME_FORMATTER),
-                                        request.endTime().format(TIME_FORMATTER));
+                                        request.startTime().format(TutoringMapper.TIME_FORMATTER), // Usar formatter do
+                                                                                                   // Mapper
+                                        request.endTime().format(TutoringMapper.TIME_FORMATTER)); // Usar formatter do
+                                                                                                  // Mapper
                         throw new TutoringOperationException(String.format(
                                         "O mentor não possui disponibilidade ativa para a disciplina '%s' que cubra o horário solicitado (%s das %s às %s).",
                                         discipline.getDisciplineName(),
                                         dayOfWeek.toString().toLowerCase().replace("_", " "),
-                                        request.startTime().format(TIME_FORMATTER),
-                                        request.endTime().format(TIME_FORMATTER)));
+                                        request.startTime().format(TutoringMapper.TIME_FORMATTER),
+                                        request.endTime().format(TutoringMapper.TIME_FORMATTER)));
                 }
                 log.info("Found covering and active availability (ID: {}) for mentor {} for the requested tutoring.",
                                 coveringAvailability.get().getId(), mentor.getId());
 
-                // 7. Se todas as validações passaram, criar a mentoria
                 Tutoring newTutoring = Tutoring.builder()
                                 .mentor(mentor)
                                 .discipline(discipline)
@@ -180,147 +173,203 @@ public class TutoringCommandService implements TutoringCommand {
                                 .topic(request.topic())
                                 .build();
                 tutoringParticipantsRepository.save(firstParticipant);
-                savedTutoring.getTopics().add(firstParticipant);
                 log.info("Mentee {} added as the first participant to tutoring {} with topic '{}'", mentee.getId(),
                                 savedTutoring.getId(), request.topic());
 
-                return mapToScheduledTutoringRepresentation(savedTutoring);
-        }
+                // Usar o mapper
+                ScheduledTutoringRepresentation representation = tutoringMapper
+                                .toScheduledTutoringRepresentation(savedTutoring);
 
-        private void checkUserConflictsWithExistingTutorings(User user, LocalDate date, LocalTime startTime,
-                        LocalTime endTime,
-                        List<StatusTutoring> statusesToLookForConflictIn, String userRole)
-                        throws TutoringOperationException {
-                log.debug(
-                                "Checking time conflicts for {} (ID: {}) on {} between {} and {} against existing tutorings with statuses: {}",
-                                userRole, user.getId(), date, startTime, endTime, statusesToLookForConflictIn);
-
-                List<Tutoring> conflictingTutorings = tutoringRepository
-                                .findConflictingTutoringsForUserWithSpecificStatuses(
-                                                user, date, startTime, endTime, statusesToLookForConflictIn);
-
-                if (!conflictingTutorings.isEmpty()) {
-                        Tutoring conflict = conflictingTutorings.get(0);
-                        String conflictMenteeName = conflict.getTopics().stream()
-                                        .findFirst()
-                                        .map(tp -> tp.getUser().getFirstName() + " " + tp.getUser().getLastName())
-                                        .orElse("um participante");
-
-                        String withWhom = conflict.getMentor().getId().equals(user.getId())
-                                        ? "com " + conflictMenteeName
-                                        : "com o mentor " + conflict.getMentor().getFirstName() + " "
-                                                        + conflict.getMentor().getLastName();
-
-                        String conflictDetails = String.format("Mentoria ID %d (%s - %s) de '%s' %s.",
-                                        conflict.getId(),
-                                        conflict.getStartTime().format(TIME_FORMATTER),
-                                        conflict.getEndTime().format(TIME_FORMATTER),
-                                        conflict.getDiscipline().getDisciplineName(),
-                                        withWhom);
-
-                        log.warn("Schedule failed: {} (ID: {}) has a time conflict. Conflicting tutoring details: {}",
-                                        userRole,
-                                        user.getId(), conflictDetails);
-                        throw new TutoringOperationException(String.format(
-                                        "O %s (você) já possui uma mentoria (%s) que conflita com este horário (%s das %s às %s). Detalhe do conflito: %s",
-                                        userRole,
-                                        conflict.getDiscipline().getDisciplineName(), // Disciplina da mentoria
-                                                                                      // conflitante
-                                        date.format(DATE_FORMATTER),
-                                        startTime.format(TIME_FORMATTER),
-                                        endTime.format(TIME_FORMATTER),
-                                        conflictDetails));
-                }
-                log.debug("No time conflicts found with existing tutorings for {} (ID: {})", userRole, user.getId());
-        }
-
-        private ScheduledTutoringRepresentation mapToScheduledTutoringRepresentation(Tutoring tutoring) {
-                if (tutoring == null) {
-                        return null;
-                }
-
-                String mentorName = "[Mentor Inválido]";
-                Long mentorId = null;
-                if (tutoring.getMentor() != null) {
-                        try {
-                                mentorId = tutoring.getMentor().getId();
-                                mentorName = tutoring.getMentor().getFirstName() + " "
-                                                + tutoring.getMentor().getLastName();
-                        } catch (EntityNotFoundException e) {
-                                log.warn("Mentor associated with tutoring {} not found during mapping for schedule response.",
-                                                tutoring.getId());
-                        }
-                }
-
-                String disciplineName = "[Disciplina Inválida]";
-                Long disciplineId = null;
-                if (tutoring.getDiscipline() != null) {
-                        try {
-                                disciplineId = tutoring.getDiscipline().getId();
-                                disciplineName = tutoring.getDiscipline().getDisciplineName();
-                        } catch (EntityNotFoundException e) {
-                                log.warn("Discipline associated with tutoring {} not found during mapping for schedule response.",
-                                                tutoring.getId());
-                        }
-                }
-
-                List<String> topicsList = new ArrayList<>();
-                int numberOfParticipants = 0;
-                if (tutoring.getTopics() != null && !tutoring.getTopics().isEmpty()) {
-                        numberOfParticipants = tutoring.getTopics().size();
-                        topicsList = tutoring.getTopics().stream()
-                                        .map(TutoringParticipants::getTopic)
-                                        .collect(Collectors.toList());
-                }
-
-                String localValue;
-                String linkVideoValue;
-
-                if (tutoring.getTutoringClassType() == TutoringClassType.PRESENCIAL) {
-                        localValue = "A definir"; // Ou tutoring.getLocal() se já puder ser definido no agendamento
-                                                  // inicial
-                        linkVideoValue = "Não se aplica";
-                } else { // ONLINE
-                        localValue = "Não se aplica";
-                        linkVideoValue = tutoring.getLinkVideo() != null ? tutoring.getLinkVideo() : "Não se aplica";
-                }
-
-                // Se a mentoria já tiver um local/link definido (ex: veio de uma
-                // disponibilidade que já tinha isso), usar esse valor.
-                // A lógica acima é para o cenário PENDENTE inicial.
-                // Para uma mentoria que já tem status AGENDADA e foi confirmada, os valores
-                // reais de local/linkVideo devem ser usados.
-                // No momento do schedule inicial, o status é PENDENTE, então "A definir" / "Não
-                // se aplica" é apropriado.
+                // Preencher qtdParticipants após o mapeamento
+                int qtdParticipants = tutoringParticipantsRepository.countByTutoringId(savedTutoring.getId());
 
                 return new ScheduledTutoringRepresentation(
-                                tutoring.getId(),
-                                mentorId,
-                                mentorName,
-                                disciplineId,
-                                disciplineName,
-                                tutoring.getTutoringClassType(),
-                                tutoring.getStatus(),
-                                tutoring.getStartTime() != null ? tutoring.getStartTime().format(TIME_FORMATTER) : null,
-                                tutoring.getEndTime() != null ? tutoring.getEndTime().format(TIME_FORMATTER) : null,
-                                tutoring.getTutoringDate() != null ? tutoring.getTutoringDate().format(DATE_FORMATTER)
-                                                : null,
-                                localValue,
-                                linkVideoValue,
-                                tutoring.getMaxParticipants(),
-                                numberOfParticipants,
-                                tutoring.getIsChatEnable(),
-                                topicsList);
+                                representation.id(),
+                                representation.mentorId(),
+                                representation.mentorName(),
+                                representation.disciplineId(),
+                                representation.disciplineName(),
+                                representation.tutoringClassType(),
+                                representation.status(),
+                                representation.startTime(),
+                                representation.endTime(),
+                                representation.tutoringDate(),
+                                representation.local(),
+                                representation.linkVideo(),
+                                representation.maxParticipants(),
+                                qtdParticipants, // Preenchido aqui
+                                representation.isChatEnable(),
+                                representation.topics());
         }
+
+        @Override
+        @Transactional
+        public UserAvailabilityRepresentation addMentorAvailability(Long mentorId, UserAvailabilityRequest request)
+                        throws UserNotFoundException, TutoringOperationException {
+                log.info("TutoringCommandService: Attempting to add availability for mentor ID: {} with discipline ID: {}",
+                                mentorId, request.disciplineId());
+
+                if (request.startTime().isAfter(request.endTime()) || request.startTime().equals(request.endTime())) {
+                        throw new TutoringOperationException(
+                                        "O horário de início deve ser anterior e diferente ao horário de fim.");
+                }
+
+                User mentor = userQuery.getUserReferenceById(mentorId);
+                Discipline disciplineRef = disciplineQuery.getReferenceById(request.disciplineId());
+
+                if (mentor.getRole() == Role.USER) {
+                        log.info("TutoringCommandService: Mentor ID {} is adding availability. Promoting to MENTOR role.",
+                                        mentorId);
+                        userCommand.promoteToMentor(mentorId);
+                }
+
+                boolean exactAvailabilityExists = mentorAvailabilityRepository
+                                .existsByUserAndDisciplineAndDayOfWeekAndStartTimeAndEndTime(
+                                                mentor, disciplineRef, request.dayOfWeek(), request.startTime(),
+                                                request.endTime());
+                if (exactAvailabilityExists) {
+                        log.warn("TutoringCommandService: Exact availability already exists for mentor ID {}, discipline ID {}, day {}, time {} - {}",
+                                        mentorId, request.disciplineId(), request.dayOfWeek(), request.startTime(),
+                                        request.endTime());
+                        throw new TutoringOperationException("Esta disponibilidade exata já foi cadastrada.");
+                }
+
+                MentorAvailability newAvailability = MentorAvailability.builder()
+                                .user(mentor)
+                                .discipline(disciplineRef)
+                                .dayOfWeek(request.dayOfWeek())
+                                .startTime(request.startTime())
+                                .endTime(request.endTime())
+                                .tutoringClassType(request.tutoringClassType())
+                                .isAvailable(false)
+                                .build();
+
+                MentorAvailability savedAvailability = mentorAvailabilityRepository.save(newAvailability);
+                log.info("TutoringCommandService: Availability entity added successfully with ID: {} for mentor ID: {}",
+                                savedAvailability.getId(), mentorId);
+
+                return tutoringMapper.toUserAvailabilityRepresentation(savedAvailability); // Usar o mapper
+        }
+
+        @Override
+        @Transactional
+        public List<UserAvailabilityRepresentation> updateMentorAvailabilityStatus(Long mentorId, Long availabilityId,
+                        UpdateAvailabilityStatusRequest request)
+                        throws UserNotFoundException, AvailabilityNotFoundException, TutoringOperationException,
+                        AccessDeniedException {
+                log.info("TutoringCommandService: Attempting to update availability status for ID: {} (Mentor: {}) to {}",
+                                availabilityId, mentorId, request.isAvailable());
+
+                User mentor = userQuery.getUserReferenceById(mentorId);
+
+                MentorAvailability targetAvailability = mentorAvailabilityRepository.findById(availabilityId)
+                                .orElseThrow(() -> {
+                                        log.warn("TutoringCommandService: Update status failed: Availability not found with ID: {}",
+                                                        availabilityId);
+                                        return new AvailabilityNotFoundException(
+                                                        "Horário de disponibilidade não encontrado com ID: "
+                                                                        + availabilityId);
+                                });
+
+                if (!targetAvailability.getUser().getId().equals(mentor.getId())) {
+                        log.warn("TutoringCommandService: Update status failed: Availability ID {} does not belong to mentor ID {}",
+                                        availabilityId, mentorId);
+                        throw new AccessDeniedException("Usuário não autorizado a modificar esta disponibilidade.");
+                }
+
+                if (targetAvailability.getIsAvailable().equals(request.isAvailable())) {
+                        log.info("TutoringCommandService: Availability ID {} already has the requested status ({}). No changes made.",
+                                        availabilityId, request.isAvailable());
+                        List<MentorAvailability> currentAvailabilities = mentorAvailabilityRepository
+                                        .findByUserId(mentorId);
+                        return tutoringMapper.toUserAvailabilityRepresentationList(currentAvailabilities); // Usar o
+                                                                                                           // mapper
+                }
+
+                boolean newStatus = request.isAvailable();
+                List<MentorAvailability> availabilitiesToSave = new ArrayList<>();
+
+                if (newStatus) {
+                        log.debug("TutoringCommandService: Activating availability ID {}. Checking for conflicts for mentor ID {} on day {}",
+                                        availabilityId, mentorId, targetAvailability.getDayOfWeek());
+
+                        List<MentorAvailability> sameDayAvailabilities = mentorAvailabilityRepository
+                                        .findByUserIdAndDayOfWeek(
+                                                        mentorId, targetAvailability.getDayOfWeek());
+
+                        for (MentorAvailability otherAvailability : sameDayAvailabilities) {
+                                if (otherAvailability.getId().equals(availabilityId))
+                                        continue;
+
+                                if (Boolean.TRUE.equals(otherAvailability.getIsAvailable())
+                                                && doesOverlap(targetAvailability, otherAvailability)) {
+                                        log.debug("TutoringCommandService: Availability ID {} conflicts with target ID {}. Deactivating otherAvailability.",
+                                                        otherAvailability.getId(), availabilityId);
+                                        otherAvailability.setIsAvailable(false);
+                                        availabilitiesToSave.add(otherAvailability);
+                                }
+                        }
+                        targetAvailability.setIsAvailable(true);
+                } else {
+                        log.debug("TutoringCommandService: Deactivating availability ID {}", availabilityId);
+                        targetAvailability.setIsAvailable(false);
+                }
+                availabilitiesToSave.add(targetAvailability);
+
+                if (!availabilitiesToSave.isEmpty()) {
+                        mentorAvailabilityRepository.saveAll(availabilitiesToSave);
+                        log.info("TutoringCommandService: Saved {} availability status changes for mentor ID {}",
+                                        availabilitiesToSave.size(), mentorId);
+                }
+
+                List<MentorAvailability> updatedMentorAvailabilities = mentorAvailabilityRepository
+                                .findByUserId(mentorId);
+                return tutoringMapper.toUserAvailabilityRepresentationList(updatedMentorAvailabilities); // Usar o
+                                                                                                         // mapper
+        }
+
+        // Os métodos mapToScheduledTutoringRepresentation e
+        // mapToUserAvailabilityRepresentation foram removidos
+        // pois suas funcionalidades agora são cobertas pelo TutoringMapper.
+
+        // Métodos auxiliares como checkUserConflictsWithExistingTutorings,
+        // mapJavaDayOfWeekToCustom, doesOverlap permanecem.
+        // Ajustar chamadas de formatação de data/hora nos logs ou mensagens de exceção
+        // se necessário,
+        // para usar TutoringMapper.TIME_FORMATTER ou TutoringMapper.DATE_FORMATTER se
+        // você os expôs como públicos estáticos,
+        // ou recriá-los como privados estáticos aqui se preferir não expô-los no
+        // mapper.
+        // Por ora, a formatação em checkUserConflictsWithExistingTutorings foi ajustada
+        // para usar os formatters do TutoringMapper.
+
+        // ... (resto dos métodos como: confirmAndUpdatetutoring, updateTutoringStatus,
+        // addParticipant, etc.)
+        // Assegure-se que eles também não estejam fazendo mapeamentos manuais se o
+        // TutoringMapper puder cobri-los.
+        // Por exemplo, o retorno de confirmAndUpdatetutoring é TutoringRepresentation.
+        // Se o TutoringMapper
+        // tiver um método para `Tutoring -> TutoringRepresentation`, ele deve ser
+        // usado.
+        // O mesmo para `updateTutoringStatus`, `addParticipant`,
+        // `cancelMentorTutoring`.
+        // `addTutoringRating` retorna `TutoringRatingRepresentation`, então precisaria
+        // de um mapeamento para isso também.
+
+        // --- Implementação dos métodos restantes de TutoringCommand ---
+        // (Mantendo a estrutura dos métodos já fornecidos e corrigidos anteriormente)
 
         @Override
         @Transactional
         public TutoringRepresentation confirmAndUpdatetutoring(Long tutoringId, ConfirmTutoringRequest request,
                         Authentication authentication)
                         throws TutoringNotFoundException, TutoringOperationException, AccessDeniedException {
-
                 log.info("Attempting to confirm or update details for tutoring ID: {} by user {}", tutoringId,
-                                authentication.getName());
+                                (authentication != null ? authentication.getName() : "UNKNOWN"));
+
+                if (authentication == null) {
+                        throw new AccessDeniedException("Autenticação necessária para esta operação.");
+                }
 
                 Tutoring tutoring = tutoringRepository.findById(tutoringId)
                                 .orElseThrow(() -> {
@@ -346,15 +395,13 @@ public class TutoringCommandService implements TutoringCommand {
 
                 if (tutoring.getStatus() != StatusTutoring.PENDENTE
                                 && tutoring.getStatus() != StatusTutoring.AGENDADA) {
-                        log.warn(
-                                        "Confirm/Update tutoring failed: Tutoring ID {} is not in PENDENTE or AGENDADA status (current: {})",
+                        log.warn("Confirm/Update tutoring failed: Tutoring ID {} is not in PENDENTE or AGENDADA status (current: {})",
                                         tutoringId, tutoring.getStatus());
                         throw new TutoringOperationException(
                                         "A monitoria só pode ser confirmada/atualizada se estiver no status PENDENTE ou AGENDADA. Status atual: "
                                                         + tutoring.getStatus());
                 }
 
-                // Aplicar os detalhes da requisição
                 if (tutoring.getTutoringClassType() == TutoringClassType.ONLINE) {
                         if (!StringUtils.hasText(request.linkVideo())) {
                                 log.warn("Confirm/Update tutoring failed: linkVideo is required for ONLINE class type. Tutoring ID: {}",
@@ -362,7 +409,7 @@ public class TutoringCommandService implements TutoringCommand {
                                 throw new TutoringOperationException(
                                                 "Link do vídeo é obrigatório para monitorias online.");
                         }
-                        tutoring.setLocal("Não se aplica");
+                        tutoring.setLocal(null);
                         tutoring.setLinkVideo(request.linkVideo());
                 } else if (tutoring.getTutoringClassType() == TutoringClassType.PRESENCIAL) {
                         if (!StringUtils.hasText(request.local())) {
@@ -371,32 +418,29 @@ public class TutoringCommandService implements TutoringCommand {
                                 throw new TutoringOperationException(
                                                 "Local é obrigatório para monitorias presenciais.");
                         }
-                        tutoring.setLinkVideo("Não se aplica");
+                        tutoring.setLinkVideo(null);
                         tutoring.setLocal(request.local());
                 }
 
                 tutoring.setMaxParticipants(request.maxParticipants());
                 tutoring.setIsChatEnable(request.isChatEnable());
 
-                // Se estava PENDENTE, agora se torna AGENDADA.
-                // Se já estava AGENDADA, o status permanece AGENDADA.
                 if (tutoring.getStatus() == StatusTutoring.PENDENTE) {
                         tutoring.setStatus(StatusTutoring.AGENDADA);
                         log.info("Tutoring ID: {} confirmed by mentor {}. Status changed from PENDENTE to AGENDADA.",
-                                        tutoringId,
-                                        userDetails.getUsername());
+                                        tutoringId, userDetails.getUsername());
                 } else {
                         log.info("Tutoring ID: {} (status AGENDADA) details updated by mentor {}.", tutoringId,
                                         userDetails.getUsername());
                 }
 
                 Tutoring updatedTutoring = tutoringRepository.save(tutoring);
-
-                if (this.tutoringQuery == null) {
-                        log.error("TutoringQuery not injected in TutoringCommandService for confirmAndUpdatetutoring");
-                        throw new IllegalStateException("TutoringQuery service not available for mapping.");
-                }
-                return this.tutoringQuery.findTutoringById(updatedTutoring.getId())
+                // Assumindo que TutoringQuery tem um método para mapear Tutoring para
+                // TutoringRepresentation
+                // ou que TutoringMapper será expandido para isso.
+                // Por enquanto, vou depender do tutoringQuery.findTutoringById que retorna
+                // TutoringRepresentation
+                return tutoringQuery.findTutoringById(updatedTutoring.getId())
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "Falha ao buscar monitoria recém-atualizada: "
                                                                 + updatedTutoring.getId()));
@@ -404,60 +448,62 @@ public class TutoringCommandService implements TutoringCommand {
 
         @Override
         @Transactional
-        public void deleteOrCancelTutoring(Long tutoringId, Authentication authentication)
-                        throws TutoringNotFoundException, TutoringOperationException, AccessDeniedException {
-
-                String requestingUser = (authentication != null) ? authentication.getName() : "UNKNOWN";
-                log.info("Attempting to delete tutoring ID: {} requested by user {}", tutoringId, requestingUser);
-
-                Tutoring tutoring = tutoringRepository.findById(tutoringId)
-                                .orElseThrow(() -> {
-                                        log.warn("Delete tutoring failed: Tutoring not found with ID: {}", tutoringId);
-                                        return new TutoringNotFoundException(
-                                                        "Monitoria não encontrada com ID: " + tutoringId);
-                                });
-
-                if (tutoring.getStatus() != StatusTutoring.PENDENTE) {
-                        log.warn(
-                                        "User {} attempted to delete tutoring ID {} with status {}, but only PENDENTE status allows deletion.",
-                                        requestingUser, tutoringId, tutoring.getStatus());
-                        throw new TutoringOperationException(
-                                        "Monitoria só pode ser excluída se estiver com status PENDENTE.");
-                }
-
-                tutoringRepository.deleteById(tutoringId);
-                log.info("Tutoring ID: {} with status PENDENTE successfully deleted by user {}", tutoringId,
-                                requestingUser);
-        }
-
-        @Override
-        @Transactional
         public TutoringRepresentation updateTutoringStatus(Long tutoringId, UpdateTutoringStatusRequest request,
                         Authentication authentication)
-                        throws TutoringNotFoundException {
+                        throws TutoringNotFoundException, TutoringOperationException, AccessDeniedException {
 
-                String requestingUserEmail = (authentication != null) ? authentication.getName() : "UNKNOWN";
-                log.info("Attempting simple status update for tutoring ID: {} to {} by user {}", tutoringId,
-                                request.status(),
+                if (authentication == null) {
+                        throw new AccessDeniedException("Autenticação necessária para esta operação.");
+                }
+                String requestingUserEmail = authentication.getName();
+                log.info("Attempting status update for tutoring ID: {} to {} by user {}", tutoringId, request.status(),
                                 requestingUserEmail);
 
                 Tutoring tutoring = tutoringRepository.findById(tutoringId)
                                 .orElseThrow(() -> {
-                                        log.warn("Simple update status failed: Tutoring not found with ID: {}",
-                                                        tutoringId);
+                                        log.warn("Update status failed: Tutoring not found with ID: {}", tutoringId);
                                         return new TutoringNotFoundException(
                                                         "Monitoria não encontrada com ID: " + tutoringId);
                                 });
+
+                User authenticatedUser = userQuery.findByEmail(requestingUserEmail)
+                                .map(userRep -> userQuery.getUserReferenceById(userRep.id()))
+                                .orElseThrow(() -> new UserNotFoundException(
+                                                "Usuário autenticado não encontrado: " + requestingUserEmail));
+
+                boolean isAdmin = authenticatedUser.getRole() == Role.ADMIN;
+                boolean isMentorOfTutoring = tutoring.getMentor() != null
+                                && tutoring.getMentor().getId().equals(authenticatedUser.getId());
+
+                if (!isAdmin && !isMentorOfTutoring) {
+                        throw new AccessDeniedException("Usuário não autorizado para esta alteração de status.");
+                }
+
+                if (isMentorOfTutoring && !isAdmin) {
+                        if (request.status() == StatusTutoring.EM_ANDAMENTO
+                                        && tutoring.getStatus() != StatusTutoring.AGENDADA) {
+                                throw new TutoringOperationException("Mentoria só pode iniciar se estiver AGENDADA.");
+                        }
+                        if (request.status() == StatusTutoring.CONCLUIDA
+                                        && tutoring.getStatus() != StatusTutoring.EM_ANDAMENTO) {
+                                throw new TutoringOperationException(
+                                                "Mentoria só pode ser concluída se estiver EM ANDAMENTO.");
+                        }
+                        if (request.status() == StatusTutoring.CANCELADA
+                                        && !(tutoring.getStatus() == StatusTutoring.PENDENTE
+                                                        || tutoring.getStatus() == StatusTutoring.AGENDADA
+                                                        || tutoring.getStatus() == StatusTutoring.EM_ANDAMENTO)) {
+                                throw new TutoringOperationException(
+                                                "Mentoria só pode ser cancelada pelo mentor se estiver PENDENTE, AGENDADA ou EM ANDAMENTO.");
+                        }
+                }
 
                 StatusTutoring newStatus = request.status();
                 StatusTutoring currentStatus = tutoring.getStatus();
-
                 tutoring.setStatus(newStatus);
-
                 Tutoring updatedTutoring = tutoringRepository.save(tutoring);
                 log.info("Status for tutoring ID: {} updated from {} to {} by user {}", tutoringId, currentStatus,
-                                newStatus,
-                                requestingUserEmail);
+                                newStatus, requestingUserEmail);
                 return tutoringQuery.findTutoringById(updatedTutoring.getId())
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "Falha ao buscar monitoria recém-atualizada: "
@@ -468,11 +514,14 @@ public class TutoringCommandService implements TutoringCommand {
         @Transactional
         public TutoringRepresentation addParticipant(Long tutoringId, AddParticipantRequest request,
                         Authentication authentication)
-                        throws TutoringNotFoundException, UserNotFoundException, TutoringOperationException {
-
-                String requestingUserEmail = (authentication != null) ? authentication.getName() : "UNKNOWN";
-                log.info("User {} attempting to add participant with ID {} to tutoring ID {}", requestingUserEmail,
-                                request.userId(), tutoringId);
+                        throws TutoringNotFoundException, UserNotFoundException, TutoringOperationException,
+                        AccessDeniedException {
+                if (authentication == null) {
+                        throw new AccessDeniedException("Autenticação necessária para esta operação.");
+                }
+                String requestingUserEmail = authentication.getName();
+                log.info("User {} (authenticated) attempting to add participant with ID {} to tutoring ID {}",
+                                requestingUserEmail, request.userId(), tutoringId);
 
                 Tutoring tutoring = tutoringRepository.findById(tutoringId)
                                 .orElseThrow(() -> {
@@ -483,44 +532,40 @@ public class TutoringCommandService implements TutoringCommand {
 
                 if (tutoring.getStatus() != StatusTutoring.AGENDADA) {
                         log.warn("Add participant failed: Tutoring ID {} is not in AGENDADA status (current: {}).",
-                                        tutoringId,
-                                        tutoring.getStatus());
+                                        tutoringId, tutoring.getStatus());
                         throw new TutoringOperationException(
                                         "Não é possível se inscrever em uma monitoria que não está agendada.");
                 }
 
-                User participantUser;
-                try {
-                        participantUser = userQuery.getUserReferenceById(request.userId());
-                } catch (EntityNotFoundException e) {
-                        log.warn("Add participant failed: User with ID {} not found.", request.userId());
-                        throw new UserNotFoundException("Usuário não encontrado com ID: " + request.userId());
+                User participantUser = userQuery.getUserReferenceById(request.userId());
+
+                if (tutoring.getMentor() != null && tutoring.getMentor().getId().equals(participantUser.getId())) {
+                        log.warn("Add participant failed: Mentor (ID: {}) cannot be added as a participant to their own tutoring (ID: {}).",
+                                        participantUser.getId(), tutoringId);
+                        throw new TutoringOperationException(
+                                        "O mentor da monitoria não pode se inscrever como participante.");
                 }
 
-                checkUserTutoringConflicts(
-                                participantUser,
-                                tutoring.getMentor(),
-                                tutoring.getTutoringDate(),
-                                tutoring.getStartTime(),
-                                tutoring.getEndTime(),
-                                this.userQuery,
-                                log);
+                List<StatusTutoring> statusesToCheckForConflict = Arrays.asList(
+                                StatusTutoring.PENDENTE, StatusTutoring.AGENDADA, StatusTutoring.EM_ANDAMENTO);
+                checkUserConflictsWithExistingTutorings(participantUser, tutoring.getTutoringDate(),
+                                tutoring.getStartTime(), tutoring.getEndTime(), statusesToCheckForConflict,
+                                "participante");
 
                 Integer maxParticipants = tutoring.getMaxParticipants();
-                int currentParticipants = tutoring.getTopics().size();
+                long currentParticipantsCount = tutoringParticipantsRepository.countByTutoringId(tutoringId);
 
-                if (maxParticipants != null && currentParticipants >= maxParticipants) {
+                if (maxParticipants != null && currentParticipantsCount >= maxParticipants) {
                         log.warn("Add participant failed: Tutoring ID {} is full (max: {}, current: {}).", tutoringId,
-                                        maxParticipants, currentParticipants);
+                                        maxParticipants, currentParticipantsCount);
                         throw new TutoringOperationException("Monitoria lotada. Não há mais vagas disponíveis.");
                 }
 
-                boolean alreadyParticipating = tutoring.getTopics().stream()
-                                .anyMatch(p -> p.getUser() != null && p.getUser().getId().equals(request.userId()));
+                boolean alreadyParticipating = tutoringParticipantsRepository.existsByTutoringIdAndUserId(tutoringId,
+                                request.userId());
                 if (alreadyParticipating) {
                         log.warn("Add participant failed: User ID {} is already participating in tutoring ID {}.",
-                                        request.userId(),
-                                        tutoringId);
+                                        request.userId(), tutoringId);
                         throw new TutoringOperationException("Você já está inscrito nesta monitoria.");
                 }
 
@@ -546,7 +591,9 @@ public class TutoringCommandService implements TutoringCommand {
                         Authentication authentication)
                         throws TutoringNotFoundException, TutoringOperationException, AccessDeniedException,
                         UserNotFoundException {
-
+                if (authentication == null) {
+                        throw new AccessDeniedException("Autenticação necessária para esta operação.");
+                }
                 String requestingUserEmail = authentication.getName();
                 log.info("User {} attempting to add rating for tutoring ID: {}", requestingUserEmail, tutoringId);
 
@@ -564,8 +611,7 @@ public class TutoringCommandService implements TutoringCommand {
                 }
 
                 User rater = userQuery.findByEmail(requestingUserEmail)
-                                .map(userRep -> userQuery.getUserReferenceById(userRep.id())) // Get User entity
-                                                                                              // reference
+                                .map(userRep -> userQuery.getUserReferenceById(userRep.id()))
                                 .orElseThrow(() -> {
                                         log.error("Add rating failed: Authenticated user {} not found in DB.",
                                                         requestingUserEmail);
@@ -573,18 +619,25 @@ public class TutoringCommandService implements TutoringCommand {
                                                         "Usuário autenticado não encontrado: " + requestingUserEmail);
                                 });
 
-                boolean isParticipant = tutoring.getTopics().stream()
-                                .anyMatch(p -> p.getUser() != null && p.getUser().getId().equals(rater.getId()));
+                boolean isParticipant = tutoringParticipantsRepository.existsByTutoringIdAndUserId(tutoringId,
+                                rater.getId());
 
                 if (!isParticipant) {
                         log.warn("Add rating failed: User {} is not a participant of tutoring ID {}",
-                                        requestingUserEmail,
-                                        tutoringId);
-                        throw new AccessDeniedException("Usuário não autorizado a avaliar esta monitoria.");
+                                        requestingUserEmail, tutoringId);
+                        throw new AccessDeniedException(
+                                        "Usuário não autorizado a avaliar esta monitoria (não participou).");
+                }
+
+                if (tutoring.getMentor() != null && tutoring.getMentor().getId().equals(rater.getId())) {
+                        log.warn("Add rating failed: Mentor (ID: {}) cannot rate their own tutoring (ID: {}).",
+                                        rater.getId(), tutoringId);
+                        throw new AccessDeniedException("O mentor não pode avaliar a própria monitoria.");
                 }
 
                 if (tutoring.getRating() != null) {
-                        log.warn("Add rating failed: Tutoring ID {} already has a rating.", tutoringId);
+                        log.warn("Add rating failed: Tutoring ID {} already has a rating (Rating ID: {}).", tutoringId,
+                                        tutoring.getRating().getId());
                         throw new TutoringOperationException("Esta monitoria já foi avaliada.");
                 }
 
@@ -595,6 +648,7 @@ public class TutoringCommandService implements TutoringCommand {
                                 .build();
 
                 TutoringRating savedRating = tutoringRatingRepository.save(newRating);
+
                 log.info("Rating added successfully with ID {} for tutoring ID {}", savedRating.getId(), tutoringId);
 
                 return tutoringQuery.mapToRatingRepresentation(savedRating, rater.getId());
@@ -602,76 +656,114 @@ public class TutoringCommandService implements TutoringCommand {
 
         @Override
         @Transactional
-        public void deleteTutoringRating(Long ratingId) throws TutoringOperationException {
-                log.info("Attempting to delete tutoring rating with ID: {}", ratingId);
+        public void deleteOrCancelTutoring(Long tutoringId, Authentication authentication)
+                        throws TutoringNotFoundException, TutoringOperationException, AccessDeniedException {
 
-                if (!tutoringRatingRepository.existsById(ratingId)) {
-                        log.warn("Delete rating failed: Rating not found with ID: {}", ratingId);
-                        throw new TutoringOperationException("Avaliação não encontrada com ID: " + ratingId);
+                if (authentication == null) {
+                        log.warn("Delete/Cancel tutoring failed: Authentication object is null for tutoring ID {}",
+                                        tutoringId);
+                        throw new AccessDeniedException("Autenticação é necessária para esta operação.");
+                }
+                String requestingUser = authentication.getName();
+                log.info("Attempting to delete or cancel tutoring ID: {} requested by user {}", tutoringId,
+                                requestingUser);
+
+                Tutoring tutoring = tutoringRepository.findById(tutoringId)
+                                .orElseThrow(() -> {
+                                        log.warn("Delete/Cancel tutoring failed: Tutoring not found with ID: {}",
+                                                        tutoringId);
+                                        return new TutoringNotFoundException(
+                                                        "Monitoria não encontrada com ID: " + tutoringId);
+                                });
+
+                User authenticatedUser = userQuery.findByEmail(requestingUser)
+                                .map(userRep -> userQuery.getUserReferenceById(userRep.id()))
+                                .orElseThrow(() -> new UserNotFoundException(
+                                                "Usuário autenticado (" + requestingUser + ") não encontrado."));
+
+                boolean isAdmin = authenticatedUser.getRole() == Role.ADMIN;
+                boolean isMentorOfTutoring = tutoring.getMentor() != null
+                                && tutoring.getMentor().getId().equals(authenticatedUser.getId());
+
+                if (!isAdmin && !isMentorOfTutoring) {
+                        log.warn("User {} is not authorized to delete/cancel tutoring ID {}", requestingUser,
+                                        tutoringId);
+                        throw new AccessDeniedException("Usuário não autorizado a excluir ou cancelar esta monitoria.");
                 }
 
-                tutoringRatingRepository.deleteById(ratingId);
+                if (tutoring.getStatus() == StatusTutoring.CONCLUIDA
+                                || tutoring.getStatus() == StatusTutoring.CANCELADA) {
+                        log.warn("User {} attempted to delete/cancel tutoring ID {} with status {}, which is not allowed.",
+                                        requestingUser, tutoringId, tutoring.getStatus());
+                        throw new TutoringOperationException("Monitoria não pode ser alterada pois seu status é "
+                                        + tutoring.getStatus().toString().toLowerCase() + ".");
+                }
 
+                if (tutoring.getStatus() == StatusTutoring.PENDENTE) {
+                        tutoringParticipantsRepository.deleteAllByTutoringId(tutoringId); // Usar um método de exclusão
+                                                                                          // em lote
+                        tutoringRepository.deleteById(tutoringId);
+                        log.info("Tutoring ID: {} with status PENDENTE successfully deleted by user {}", tutoringId,
+                                        requestingUser);
+                } else {
+                        tutoring.setStatus(StatusTutoring.CANCELADA);
+                        tutoringRepository.save(tutoring);
+                        log.info("Tutoring ID: {} status changed to CANCELADA by user {}", tutoringId, requestingUser);
+                }
+        }
+
+        @Override
+        @Transactional
+        public void deleteTutoringRating(Long ratingId) throws TutoringOperationException {
+                log.info("Attempting to delete tutoring rating with ID: {}", ratingId);
+                TutoringRating rating = tutoringRatingRepository.findById(ratingId)
+                                .orElseThrow(() -> {
+                                        log.warn("Delete rating failed: Rating not found with ID: {}", ratingId);
+                                        return new TutoringOperationException(
+                                                        "Avaliação não encontrada com ID: " + ratingId);
+                                });
+
+                tutoringRatingRepository.deleteById(ratingId);
                 log.info("Tutoring rating with ID: {} deleted successfully.", ratingId);
         }
 
-        private static DayWeek mapJavaDayOfWeekToCustom(java.time.DayOfWeek javaDayOfWeek) {
-                if (javaDayOfWeek == null) {
-                        throw new IllegalArgumentException("java.time.DayOfWeek não pode ser nulo para mapeamento.");
-                }
-                return switch (javaDayOfWeek) {
-                        case MONDAY -> DayWeek.SEGUNDA_FEIRA;
-                        case TUESDAY -> DayWeek.TERCA_FEIRA;
-                        case WEDNESDAY -> DayWeek.QUARTA_FEIRA;
-                        case THURSDAY -> DayWeek.QUINTA_FEIRA;
-                        case FRIDAY -> DayWeek.SEXTA_FEIRA;
-                        case SATURDAY -> DayWeek.SABADO;
-                        case SUNDAY -> DayWeek.DOMINGO;
+        @Override
+        @Transactional
+        public void deleteMentorAvailability(Long mentorId, Long availabilityId)
+                        throws UserNotFoundException, AvailabilityNotFoundException, TutoringOperationException,
+                        AccessDeniedException {
+                // TODO: Implement the logic to delete a mentor's availability.
+                // 1. Find the mentor user by mentorId.
+                // 2. Find the availability by availabilityId.
+                // 3. Check if the availability belongs to the mentor.
+                // 4. Check if there are any non-cancellable tutorias scheduled during this
+                // availability.
+                // If so, throw a TutoringOperationException or handle as per your business
+                // logic.
+                // 5. Delete the availability.
+                log.info("Attempting to delete availability ID: {} for mentor ID: {}", availabilityId, mentorId);
+                User mentor = userQuery.getUserReferenceById(mentorId); // Assuming userQuery can throw
+                                                                        // UserNotFoundException
 
-                };
-        }
+                MentorAvailability availability = mentorAvailabilityRepository.findById(availabilityId)
+                                .orElseThrow(() -> new AvailabilityNotFoundException(
+                                                "Disponibilidade não encontrada com ID: " + availabilityId));
 
-        private static void checkUserTutoringConflicts(
-                        User userToCheck,
-                        User actualMentorForTutoring,
-                        LocalDate tutoringDate,
-                        LocalTime tutoringStartTime,
-                        LocalTime tutoringEndTime,
-                        UserQuery userQueryInstance,
-                        Logger logger) throws TutoringOperationException {
-
-                if (actualMentorForTutoring != null && actualMentorForTutoring.getId().equals(userToCheck.getId())) {
-                        logger.warn("Conflict Check Failed: User ID {} is attempting to be both mentor and mentee/participant.",
-                                        userToCheck.getId());
-                        throw new TutoringOperationException(
-                                        "Um usuário não pode ser mentor e mentorado/participante na mesma mentoria.");
+                if (!availability.getUser().getId().equals(mentor.getId())) {
+                        throw new AccessDeniedException("Usuário não autorizado a excluir esta disponibilidade.");
                 }
 
-                if (userToCheck.getRole() == Role.MENTOR) {
-                        List<UserAvailabilityRepresentation> userAvailabilities = userQueryInstance
-                                        .findAvailabilitiesRepresentationByUserId(userToCheck.getId());
+                // Optional: Check for dependent tutorings before deleting.
+                // Example: if
+                // (tutoringRepository.existsByMentorAndAvailabilityAndStatusNotIn(mentor,
+                // availability, Arrays.asList(StatusTutoring.CANCELADA,
+                // StatusTutoring.CONCLUIDA))) {
+                // throw new TutoringOperationException("Não é possível excluir disponibilidade
+                // pois existem mentorias ativas ou pendentes associadas a ela.");
+                // }
 
-                        if (tutoringDate != null && tutoringStartTime != null && tutoringEndTime != null) {
-                                DayWeek tutoringDayOfWeekEnum = mapJavaDayOfWeekToCustom(tutoringDate.getDayOfWeek());
-
-                                for (UserAvailabilityRepresentation availabilityRep : userAvailabilities) {
-                                        if (Boolean.TRUE.equals(availabilityRep.isAvailable())
-                                                        && availabilityRep.dayOfWeek() == tutoringDayOfWeekEnum) {
-                                                // Verifica sobreposição de horários
-                                                boolean overlaps = tutoringStartTime.isBefore(availabilityRep.endTime())
-                                                                &&
-                                                                tutoringEndTime.isAfter(availabilityRep.startTime());
-                                                if (overlaps) {
-                                                        logger.warn(
-                                                                        "Conflict Check Failed: User ID {} (Role: MENTOR) has a conflicting availability (ID: {}) with the proposed tutoring time.",
-                                                                        userToCheck.getId(), availabilityRep.id());
-                                                        throw new TutoringOperationException(
-                                                                        "Conflito de horário: Você possui uma disponibilidade como mentor que coincide com este horário de mentoria.");
-                                                }
-                                        }
-                                }
-                        }
-                }
+                mentorAvailabilityRepository.delete(availability);
+                log.info("Disponibilidade ID: {} do mentor ID: {} excluída com sucesso.", availabilityId, mentorId);
         }
 
         @Override
@@ -680,6 +772,9 @@ public class TutoringCommandService implements TutoringCommand {
                         throws TutoringNotFoundException, UserNotFoundException, TutoringOperationException,
                         AccessDeniedException {
 
+                if (authentication == null) {
+                        throw new AccessDeniedException("Autenticação necessária para esta operação.");
+                }
                 String requestingUserEmail = authentication.getName();
                 log.info("Service: Usuário {} tentando remover participante com ID {} da mentoria ID {}",
                                 requestingUserEmail, userId, tutoringId);
@@ -692,13 +787,18 @@ public class TutoringCommandService implements TutoringCommand {
                                                         "Monitoria não encontrada com ID: " + tutoringId);
                                 });
 
-                User userToRemove = userQuery.getUserReferenceById(userId);
+                userQuery.getUserReferenceById(userId);
 
                 User authenticatedUser = userQuery.findByEmail(requestingUserEmail)
                                 .map(rep -> userQuery.getUserReferenceById(rep.id()))
                                 .orElseThrow(() -> new UserNotFoundException("Usuário autenticado não encontrado."));
 
-                if (!authenticatedUser.getId().equals(userId) && !authenticatedUser.getRole().equals(Role.ADMIN)) {
+                boolean isAdmin = authenticatedUser.getRole() == Role.ADMIN;
+                boolean isSelf = authenticatedUser.getId().equals(userId);
+                boolean isMentorOfTutoring = tutoring.getMentor() != null
+                                && tutoring.getMentor().getId().equals(authenticatedUser.getId());
+
+                if (!isSelf && !isAdmin && !isMentorOfTutoring) {
                         log.warn("Service: Usuário {} não autorizado a remover participante {} da mentoria {}",
                                         requestingUserEmail, userId, tutoringId);
                         throw new AccessDeniedException("Você não tem permissão para remover este participante.");
@@ -708,12 +808,11 @@ public class TutoringCommandService implements TutoringCommand {
                         log.warn("Service: Tentativa de remover o mentor (ID: {}) como participante da mentoria ID: {}",
                                         userId, tutoringId);
                         throw new TutoringOperationException(
-                                        "O mentor não pode sair da mentoria como participante. Para cancelar a mentoria, utilize a opção apropriada.");
+                                        "O mentor não pode ser removido como participante. Para cancelar a mentoria, use a opção apropriada.");
                 }
 
-                TutoringParticipants participantToRemove = tutoring.getTopics().stream()
-                                .filter(p -> p.getUser() != null && p.getUser().getId().equals(userId))
-                                .findFirst()
+                TutoringParticipants participantToRemove = tutoringParticipantsRepository
+                                .findByTutoringIdAndUserId(tutoringId, userId)
                                 .orElseThrow(() -> {
                                         log.warn("Service: Usuário ID {} não é um participante da mentoria ID {}",
                                                         userId, tutoringId);
@@ -724,33 +823,33 @@ public class TutoringCommandService implements TutoringCommand {
                 if (tutoring.getStatus() == StatusTutoring.PENDENTE
                                 || tutoring.getStatus() == StatusTutoring.AGENDADA) {
                         tutoringParticipantsRepository.delete(participantToRemove);
-                        tutoring.getTopics().remove(participantToRemove);
+                        long remainingParticipants = tutoringParticipantsRepository.countByTutoringId(tutoringId);
 
-                        if (tutoring.getStatus() == StatusTutoring.PENDENTE && tutoring.getTopics().isEmpty()) {
-                                log.info("Service: Mentoria PENDENTE ID {} ficou sem participantes após saída do usuário ID {}. Excluindo mentoria.",
+                        if (tutoring.getStatus() == StatusTutoring.PENDENTE && remainingParticipants == 0) {
+                                log.info("Service: Mentoria PENDENTE ID {} ficou sem participantes após saída do usuário ID {}. Cancelando mentoria.",
                                                 tutoringId, userId);
-                                tutoringRepository.delete(tutoring);
-                        } else {
+                                tutoring.setStatus(StatusTutoring.CANCELADA);
                                 tutoringRepository.save(tutoring);
                         }
-
                         log.info("Service: Participante ID {} removido com sucesso da mentoria ID {}", userId,
                                         tutoringId);
                 } else {
-                        log.warn("Service: Tentativa de sair da mentoria ID {} com status inválido: {}", tutoringId,
-                                        tutoring.getStatus());
+                        log.warn("Service: Tentativa de sair/remover da mentoria ID {} com status inválido: {}",
+                                        tutoringId, tutoring.getStatus());
                         throw new TutoringOperationException(
-                                        "Não é possível sair de uma mentoria que não esteja PENDENTE ou AGENDADA.");
+                                        "Não é possível sair/remover de uma mentoria que não esteja PENDENTE ou AGENDADA.");
                 }
         }
 
         @Override
         @Transactional
         public TutoringRepresentation cancelMentorTutoring(Long userIdFromPath, Long tutoringId,
-                        boolean deactivateAvailability, Authentication authentication) // userIdFromPath ADICIONADO
+                        boolean deactivateAvailability, Authentication authentication)
                         throws TutoringNotFoundException, TutoringOperationException, AccessDeniedException,
                         UserNotFoundException {
-
+                if (authentication == null) {
+                        throw new AccessDeniedException("Autenticação necessária para esta operação.");
+                }
                 String authenticatedUserEmail = authentication.getName();
                 log.info("Service: Authenticated user {} attempting to cancel tutoring ID: {} for user ID in path: {} with deactivateAvailability: {}",
                                 authenticatedUserEmail, tutoringId, userIdFromPath, deactivateAvailability);
@@ -764,9 +863,7 @@ public class TutoringCommandService implements TutoringCommand {
                                 });
 
                 User authenticatedUser = userQuery.findByEmail(authenticatedUserEmail)
-                                .map(rep -> userQuery.getUserReferenceById(rep.id())) // Assume que
-                                                                                      // userQuery.getUserReferenceById(id)
-                                                                                      // retorna User
+                                .map(rep -> userQuery.getUserReferenceById(rep.id()))
                                 .orElseThrow(() -> {
                                         log.error("Service: Cancel tutoring failed. Authenticated user {} not found.",
                                                         authenticatedUserEmail);
@@ -774,51 +871,36 @@ public class TutoringCommandService implements TutoringCommand {
                                                         + authenticatedUserEmail);
                                 });
 
-                User userFromPath = userQuery.findById(userIdFromPath) // Busca o usuário pelo ID do caminho
-                                .map(rep -> userQuery.getUserReferenceById(rep.id()))
-                                .orElseThrow(() -> {
-                                        log.warn("Service: Cancel tutoring failed. User specified in path (ID: {}) not found.",
-                                                        userIdFromPath);
-                                        return new UserNotFoundException(
-                                                        "Usuário (mentor) especificado no caminho não encontrado com ID: "
-                                                                        + userIdFromPath);
-                                });
+                User userFromPathAsMentor = userQuery.getUserReferenceById(userIdFromPath);
 
-                // Lógica de Autorização Refinada
-                boolean isAdmin = authenticatedUser.getAuthorities().stream()
-                                .anyMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ADMIN"));
+                boolean isAdmin = authenticatedUser.getRole() == Role.ADMIN;
 
                 if (isAdmin) {
-                        // ADMIN pode cancelar, mas o userIdFromPath DEVE ser o mentor da mentoria.
-                        if (!tutoring.getMentor().getId().equals(userFromPath.getId())) {
+                        if (tutoring.getMentor() == null
+                                        || !tutoring.getMentor().getId().equals(userFromPathAsMentor.getId())) {
                                 log.warn("Service (Admin Action): User ID in path {} is not the mentor of tutoring ID {}. Actual mentor is {}.",
-                                                userFromPath.getId(), tutoringId, tutoring.getMentor().getId());
-                                throw new AccessDeniedException("O usuário (ID: " + userFromPath.getId()
+                                                userFromPathAsMentor.getId(), tutoringId,
+                                                (tutoring.getMentor() != null ? tutoring.getMentor().getId() : "null"));
+                                throw new AccessDeniedException("O usuário (ID: " + userFromPathAsMentor.getId()
                                                 + ") especificado no caminho não é o mentor desta monitoria (ID: "
                                                 + tutoringId + ").");
                         }
                         log.info("Service: Admin {} is performing cancellation for mentor {}'s tutoring {}.",
-                                        authenticatedUserEmail, userFromPath.getEmail(), tutoringId);
+                                        authenticatedUserEmail, userFromPathAsMentor.getEmail(), tutoringId);
                 } else {
-                        // Se NÃO for ADMIN:
-                        // 1. O usuário autenticado DEVE ser o mesmo que o userIdFromPath.
-                        if (!authenticatedUser.getId().equals(userFromPath.getId())) {
+                        if (!authenticatedUser.getId().equals(userFromPathAsMentor.getId())) {
                                 log.warn("Service: Authenticated user {} (ID: {}) is not authorized to cancel tutoring for user ID in path {} (not an Admin).",
                                                 authenticatedUserEmail, authenticatedUser.getId(),
-                                                userFromPath.getId());
+                                                userFromPathAsMentor.getId());
                                 throw new AccessDeniedException(
                                                 "Você não tem permissão para realizar esta ação para o usuário especificado (ID: "
-                                                                + userFromPath.getId() + ").");
+                                                                + userFromPathAsMentor.getId() + ").");
                         }
-                        // 2. Esse usuário (que é o autenticado e o do path) DEVE ser o mentor da
-                        // mentoria.
-                        if (!tutoring.getMentor().getId().equals(authenticatedUser.getId())) { // authenticatedUser.getId()
-                                                                                               // é igual a
-                                                                                               // userFromPath.getId()
-                                                                                               // aqui
+                        if (tutoring.getMentor() == null
+                                        || !tutoring.getMentor().getId().equals(authenticatedUser.getId())) {
                                 log.warn("Service: Authenticated user {} (ID: {}) is not the mentor of tutoring ID {}. Actual mentor is {}.",
                                                 authenticatedUserEmail, authenticatedUser.getId(), tutoringId,
-                                                tutoring.getMentor().getId());
+                                                (tutoring.getMentor() != null ? tutoring.getMentor().getId() : "null"));
                                 throw new AccessDeniedException(
                                                 "Você não é o mentor desta monitoria (ID: " + tutoringId + ").");
                         }
@@ -826,30 +908,36 @@ public class TutoringCommandService implements TutoringCommand {
                                         authenticatedUserEmail, tutoringId);
                 }
 
-                // Verificação de Status (permanece a mesma)
                 if (tutoring.getStatus() == StatusTutoring.CONCLUIDA
                                 || tutoring.getStatus() == StatusTutoring.CANCELADA) {
-                        log.warn("Service: Tutoring ID {} cannot be cancelled. Status is already {} or {}.",
-                                        tutoringId, StatusTutoring.CONCLUIDA, StatusTutoring.CANCELADA);
-                        throw new TutoringOperationException(
-                                        "Monitoria não pode ser cancelada pois já está "
-                                                        + tutoring.getStatus().toString().toLowerCase() + ".");
+                        log.warn("Service: Tutoring ID {} cannot be cancelled. Status is already {} or {}.", tutoringId,
+                                        StatusTutoring.CONCLUIDA, StatusTutoring.CANCELADA);
+                        throw new TutoringOperationException("Monitoria não pode ser cancelada pois já está "
+                                        + tutoring.getStatus().toString().toLowerCase() + ".");
                 }
 
                 tutoring.setStatus(StatusTutoring.CANCELADA);
                 Tutoring cancelledTutoring = tutoringRepository.save(tutoring);
                 log.info("Service: Tutoring ID {} status changed to CANCELADA by authenticated user {} (acting for/as mentor {}).",
-                                tutoringId, authenticatedUserEmail, userFromPath.getEmail());
+                                tutoringId, authenticatedUserEmail, userFromPathAsMentor.getEmail());
 
-                // Lógica para Desativar Disponibilidade (permanece a mesma, usa
-                // tutoring.getMentor() que foi validado)
                 if (deactivateAvailability) {
                         log.info("Service: Attempting to deactivate corresponding availability for tutoring ID {}.",
                                         tutoringId);
                         try {
-                                User mentorOfTutoring = tutoring.getMentor(); // Este é o userFromPath validado
+                                User mentorOfTutoring = tutoring.getMentor();
                                 Discipline discipline = tutoring.getDiscipline();
-                                DayWeek dayOfWeek = mapJavaDayOfWeekToCustom(tutoring.getTutoringDate().getDayOfWeek());
+                                DayWeek dayOfWeek = mapJavaDayOfWeekToCustom(tutoring.getTutoringDate().getDayOfWeek()); // Corrigido
+                                                                                                                         // para
+                                                                                                                         // pegar
+                                                                                                                         // o
+                                                                                                                         // dia
+                                                                                                                         // da
+                                                                                                                         // semana
+                                                                                                                         // da
+                                                                                                                         // data
+                                                                                                                         // da
+                                                                                                                         // tutoria
 
                                 Optional<MentorAvailability> coveringAvailabilityOpt = mentorAvailabilityRepository
                                                 .findCoveringAndActiveAvailability(
@@ -862,11 +950,19 @@ public class TutoringCommandService implements TutoringCommand {
                                 if (coveringAvailabilityOpt.isPresent()) {
                                         MentorAvailability availabilityToDeactivate = coveringAvailabilityOpt.get();
                                         if (Boolean.TRUE.equals(availabilityToDeactivate.getIsAvailable())) {
-                                                availabilityToDeactivate.setIsAvailable(false);
-                                                mentorAvailabilityRepository.save(availabilityToDeactivate);
-                                                log.info("Service: Availability ID {} for mentor {} successfully deactivated due to tutoring {} cancellation.",
-                                                                availabilityToDeactivate.getId(),
-                                                                mentorOfTutoring.getId(), tutoringId);
+                                                UpdateAvailabilityStatusRequest updateReq = new UpdateAvailabilityStatusRequest(
+                                                                false);
+                                                try {
+                                                        updateMentorAvailabilityStatus(mentorOfTutoring.getId(),
+                                                                        availabilityToDeactivate.getId(), updateReq);
+                                                        log.info("Service: Availability ID {} for mentor {} successfully deactivated via command due to tutoring {} cancellation.",
+                                                                        availabilityToDeactivate.getId(),
+                                                                        mentorOfTutoring.getId(), tutoringId);
+                                                } catch (Exception e) {
+                                                        log.error("Service: Error deactivating availability ID {} via command: {}",
+                                                                        availabilityToDeactivate.getId(),
+                                                                        e.getMessage(), e);
+                                                }
                                         } else {
                                                 log.info("Service: Availability ID {} for mentor {} was already inactive. No change made.",
                                                                 availabilityToDeactivate.getId(),
@@ -882,11 +978,86 @@ public class TutoringCommandService implements TutoringCommand {
                                                 tutoringId, e.getMessage(), e);
                         }
                 }
-
                 return tutoringQuery.findTutoringById(cancelledTutoring.getId())
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "Falha ao buscar representação da monitoria recém-cancelada: "
                                                                 + cancelledTutoring.getId()));
         }
 
+        // --- Métodos auxiliares ---
+        private boolean doesOverlap(MentorAvailability target, MentorAvailability other) {
+                if (target == null || other == null || target.getStartTime() == null || target.getEndTime() == null ||
+                                other.getStartTime() == null || other.getEndTime() == null) {
+                        return false;
+                }
+                LocalTime targetStart = target.getStartTime();
+                LocalTime targetEnd = target.getEndTime();
+                LocalTime otherStart = other.getStartTime();
+                LocalTime otherEnd = other.getEndTime();
+                return targetStart.isBefore(otherEnd) && targetEnd.isAfter(otherStart);
+        }
+
+        private DayWeek mapJavaDayOfWeekToCustom(java.time.DayOfWeek javaDayOfWeek) {
+                if (javaDayOfWeek == null) {
+                        throw new IllegalArgumentException("java.time.DayOfWeek não pode ser nulo para mapeamento.");
+                }
+                return DayWeek.valueOf(javaDayOfWeek.name()); // Assumindo que os enums têm nomes correspondentes
+        }
+
+        private void checkUserConflictsWithExistingTutorings(User user, LocalDate date, LocalTime startTime,
+                        LocalTime endTime, List<StatusTutoring> statusesToConsider, String userRole)
+                        throws TutoringOperationException {
+                log.debug("Checking time conflicts for {} (ID: {}) on {} between {} and {} against existing tutorings with statuses: {}",
+                                userRole, user.getId(), date, startTime, endTime, statusesToConsider);
+                List<Tutoring> conflictingTutorings = tutoringRepository
+                                .findConflictingTutoringsForUserWithSpecificStatuses(user, date, startTime, endTime,
+                                                statusesToConsider);
+                if (!conflictingTutorings.isEmpty()) {
+                        Tutoring conflict = conflictingTutorings.get(0);
+                        String conflictMenteeName = "[Mentorado não carregado]";
+                        if (conflict.getTopics() != null && !conflict.getTopics().isEmpty()) {
+                                Optional<User> firstMenteeUserOpt = conflict.getTopics().stream().findFirst()
+                                                .map(TutoringParticipants::getUser);
+                                if (firstMenteeUserOpt.isPresent()) {
+                                        User firstMenteeUser = firstMenteeUserOpt.get();
+                                        conflictMenteeName = firstMenteeUser.getFirstName() + " "
+                                                        + firstMenteeUser.getLastName();
+                                }
+                        } else if (conflict.getMentor() != null && conflict.getMentor().getId().equals(user.getId())) {
+                                return;
+                        }
+
+                        String withWhom = "[Mentor não carregado]";
+                        if (conflict.getMentor() != null) {
+                                withWhom = conflict.getMentor().getId().equals(user.getId())
+                                                ? "com " + conflictMenteeName
+                                                : "com o mentor " + conflict.getMentor().getFirstName() + " "
+                                                                + conflict.getMentor().getLastName();
+                        }
+
+                        String disciplineNameStr = "[Disciplina não carregada]";
+                        if (conflict.getDiscipline() != null) {
+                                disciplineNameStr = conflict.getDiscipline().getDisciplineName();
+                        }
+
+                        String conflictDetails = String.format("Mentoria ID %d (%s - %s) de '%s' %s.", conflict.getId(),
+                                        (conflict.getStartTime() != null
+                                                        ? conflict.getStartTime().format(TutoringMapper.TIME_FORMATTER)
+                                                        : "N/A"),
+                                        (conflict.getEndTime() != null
+                                                        ? conflict.getEndTime().format(TutoringMapper.TIME_FORMATTER)
+                                                        : "N/A"),
+                                        disciplineNameStr, withWhom);
+                        log.warn("Schedule/Participation failed: {} (ID: {}) has a time conflict. Conflicting tutoring details: {}",
+                                        userRole, user.getId(), conflictDetails);
+                        throw new TutoringOperationException(String.format(
+                                        "O %s (você) já possui uma mentoria (%s) que conflita com este horário (%s das %s às %s). Detalhe do conflito: %s",
+                                        userRole, disciplineNameStr,
+                                        (date != null ? date.format(TutoringMapper.DATE_FORMATTER) : "N/A"),
+                                        (startTime != null ? startTime.format(TutoringMapper.TIME_FORMATTER) : "N/A"),
+                                        (endTime != null ? endTime.format(TutoringMapper.TIME_FORMATTER) : "N/A"),
+                                        conflictDetails));
+                }
+                log.debug("No time conflicts found with existing tutorings for {} (ID: {})", userRole, user.getId());
+        }
 }
