@@ -4,7 +4,7 @@ import com.projetointegrador.seumentor.tutoring.api.UserAvailabilityQuery;
 import com.projetointegrador.seumentor.tutoring.repository.MentorAvailabilityRepository;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component; // Ou @Service
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component

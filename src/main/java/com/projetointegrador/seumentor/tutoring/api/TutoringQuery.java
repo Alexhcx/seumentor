@@ -3,6 +3,7 @@ package com.projetointegrador.seumentor.tutoring.api;
 
 import com.projetointegrador.seumentor.common.enums.DayWeek;
 import com.projetointegrador.seumentor.tutoring.api.dto.MentorProfileRepresentation;
+import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRatingRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
@@ -25,8 +26,6 @@ public interface TutoringQuery {
     @Transactional(readOnly = true)
     List<TutoringRepresentation> findAllTutoringsByMentorId(Long mentorId);
 
-    // Mantendo a correção da interação anterior para este método,
-    // que alinha o nome e o tipo de retorno com a implementação que você já tinha.
     @Transactional(readOnly = true)
     List<TutoringRepresentation> findAllTutoringsByParticipantId(Long userId);
 
@@ -44,7 +43,6 @@ public interface TutoringQuery {
             Long requestingUserId
     );
 
-    // ----- MÉTODOS ADICIONADOS À INTERFACE -----
     @Transactional(readOnly = true)
     Optional<UserAvailabilityRepresentation> findMentorAvailabilityRepresentationById(Long availabilityId);
 
@@ -59,4 +57,10 @@ public interface TutoringQuery {
 
     @Transactional(readOnly = true)
     List<MentorAvailability> findAllAvailabilitiesByDayOfWeek(DayWeek dayOfWeek);
+
+    @Transactional(readOnly = true)
+    List<TutoringRepresentation> getUserMentoringSessions(Long userId);
+
+    @Transactional(readOnly = true)
+    List<TutoringParticipationRepresentation> getUserParticipationSessions(Long userId);
 }

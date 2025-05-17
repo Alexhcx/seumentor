@@ -382,6 +382,63 @@ public class TutoringController {
         }
     }
 
+     @GetMapping("/{id}/mentoring-sessions")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
+    @Operation(summary = "Lista as mentorias em que o usuário é o mentor",
+            description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado atua como mentor.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de mentorias (como mentor) retornada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = TutoringRepresentation.class)))),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<List<TutoringRepresentation>> getUserMentoringSessions(
+            @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {
+        log.info("Controller: Request for mentoring sessions for user ID (as mentor): {}", id);
+        try {
+            List<TutoringRepresentation> sessions = tutoringQueryService.getUserMentoringSessions(id);
+            return ResponseEntity.ok(sessions);
+        } catch (UserNotFoundException e) {
+            log.warn("Controller: User not found when fetching mentoring sessions for user ID {}: {}", id, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Controller: Error fetching mentoring sessions for user ID {}: {}", id, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar sessões de mentoria (como mentor)", e);
+        }
+    }
+
+    @GetMapping("/{id}/participation-sessions")
+    @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
+    @Operation(summary = "Lista as mentorias em que o usuário é participante",
+            description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado está inscrito como participante (mentorado), com foco nos tópicos e quantidade de participantes.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista de mentorias (como participante) retornada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                            // Altere o schema para o novo DTO
+                            array = @ArraySchema(schema = @Schema(implementation = TutoringParticipationRepresentation.class)))),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<List<TutoringParticipationRepresentation>> getUserParticipationSessions(
+            @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {
+        log.info("Controller: Requisição para sessões de participação do usuário ID: {} usando TutoringParticipationRepresentation", id);
+        try {
+            List<TutoringParticipationRepresentation> sessions = tutoringQueryService.getUserParticipationSessions(id);
+            return ResponseEntity.ok(sessions);
+        } catch (UserNotFoundException e) {
+            log.warn("Controller: Usuário não encontrado ao buscar sessões de participação para o ID {}: {}", id, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Controller: Erro ao buscar sessões de participação para o usuário ID {}: {}", id, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar sessões de participação em mentoria", e);
+        }
+    }
+
     @DeleteMapping("/users/{userId}/tutoring/{tutoringId}/cancel-by-mentor")
     @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
     @Operation(summary = "Cancela uma mentoria (pelo mentor)", description = "Permite que o mentor (identificado por userId) cancele uma de suas mentorias. "
