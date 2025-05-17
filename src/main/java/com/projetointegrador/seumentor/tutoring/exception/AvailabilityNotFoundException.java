@@ -1,4 +1,4 @@
-package com.projetointegrador.seumentor.user.exception;
+package com.projetointegrador.seumentor.tutoring.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;

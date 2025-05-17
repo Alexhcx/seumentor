@@ -1,16 +1,16 @@
 package com.projetointegrador.seumentor.user.controller;
 
 import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException;
+import com.projetointegrador.seumentor.course.exception.FavoriteDisciplineNotFoundException;
 import com.projetointegrador.seumentor.tutoring.api.dto.MentorProfileRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.UpdateAvailabilityStatusRequest;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRequest;
+import com.projetointegrador.seumentor.tutoring.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.user.api.UserQuery;
 import com.projetointegrador.seumentor.user.api.dtos.*;
-import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;
-import com.projetointegrador.seumentor.user.exception.FavoriteDisciplineNotFoundException;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import com.projetointegrador.seumentor.user.service.UserCommandService;
 import io.swagger.v3.oas.annotations.Operation;

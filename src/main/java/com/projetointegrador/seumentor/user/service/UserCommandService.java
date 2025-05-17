@@ -3,9 +3,9 @@ package com.projetointegrador.seumentor.user.service;
 
 import com.projetointegrador.seumentor.common.util.CPFUtils;
 import com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException;
+import com.projetointegrador.seumentor.course.exception.FavoriteDisciplineNotFoundException;
 import com.projetointegrador.seumentor.user.api.UserQuery; // Apenas a interface
 import com.projetointegrador.seumentor.user.api.dtos.*;
-import com.projetointegrador.seumentor.user.exception.FavoriteDisciplineNotFoundException;
 
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,13 +21,13 @@ import com.projetointegrador.seumentor.course.repository.UserFavoriteDisciplines
 import com.projetointegrador.seumentor.tutoring.api.dto.UpdateAvailabilityStatusRequest;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRequest;
+import com.projetointegrador.seumentor.tutoring.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.tutoring.repository.MentorAvailabilityRepository;
 import com.projetointegrador.seumentor.user.api.UserCommand;
 import com.projetointegrador.seumentor.user.api.events.PasswordResetRequestedEvent;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 import com.projetointegrador.seumentor.user.enums.Role;
-import com.projetointegrador.seumentor.user.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import com.projetointegrador.seumentor.user.repository.UserRepository;
 import com.projetointegrador.seumentor.user.model.User;
