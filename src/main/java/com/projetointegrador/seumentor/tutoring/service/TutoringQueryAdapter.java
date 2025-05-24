@@ -105,7 +105,7 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                                 .collect(Collectors.toList());
         }
 
-        static class TutoringSpecifications { // Movido para dentro ou mantido como classe separada no mesmo pacote
+        static class TutoringSpecifications {
                 public static Specification<Tutoring> buildSpecification(Long mentorId, Long disciplineId,
                                 StatusTutoring status) {
                         return (root, query, criteriaBuilder) -> {
@@ -141,9 +141,7 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                                 }
                                 disciplineId.ifPresent(discId -> predicates
                                                 .add(cb.equal(root.get("discipline").get("id"), discId)));
-                                predicates.add(root.get("status").in(StatusTutoring.AGENDADA)); // Apenas AGENDADA para
-                                                                                                // slots
-                                                                                                // disponíveis
+                                predicates.add(root.get("status").in(StatusTutoring.AGENDADA, StatusTutoring.PENDENTE));
                                 if (query.getResultType() != Long.class && query.getResultType() != long.class) {
                                         root.fetch("mentor", jakarta.persistence.criteria.JoinType.LEFT);
                                         root.fetch("discipline", jakarta.persistence.criteria.JoinType.LEFT)
@@ -248,36 +246,87 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                 return results;
         }
 
-        @Override
+                @Override
         @Transactional(readOnly = true)
         public List<TutoringRepresentation> findAvailableSlotsForUser(LocalDate date, Optional<Long> disciplineId,
                         Long requestingUserId) {
-                Specification<Tutoring> specConcrete = TutoringSpecifications.buildAvailableSlotsSpecification(date,
-                                disciplineId, requestingUserId);
-                List<Tutoring> concreteTutoringsFromOthers = tutoringRepository.findAll(specConcrete);
+                log.info("NOVA LÓGICA: Buscando slots para User ID: {} em Data: {}, Disciplina ID: {}", requestingUserId, date, disciplineId.orElse(null));
 
-                List<TutoringRepresentation> availableSlots = concreteTutoringsFromOthers.stream()
-                                .filter(tutoring -> isTutoringAvailableForUser(tutoring, requestingUserId))
-                                .map(this::enrichTutoringRepresentation)
-                                .filter(Objects::nonNull)
-                                .collect(Collectors.toCollection(ArrayList::new));
+                // 1. Buscar TODAS as mentorias concretas (PENDENTE ou AGENDADA) para o slot,
+                //    INCLUINDO aquelas onde o requestingUserId é o mentor.
+                //    A Specification precisa ser ajustada para NÃO excluir mentorias do requestingUserId.
+                Specification<Tutoring> specConcreteForAllMentors = (root, query, cb) -> {
+                    List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+                    predicates.add(cb.equal(root.get("tutoringDate"), date));
+                    disciplineId.ifPresent(discId -> predicates.add(cb.equal(root.get("discipline").get("id"), discId)));
+                    predicates.add(root.get("status").in(StatusTutoring.AGENDADA, StatusTutoring.PENDENTE));
 
-                Set<String> concreteTutoringKeys = generateConcreteTutoringKeys(concreteTutoringsFromOthers, date);
+                    if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                        root.fetch("mentor", jakarta.persistence.criteria.JoinType.LEFT);
+                        root.fetch("discipline", jakarta.persistence.criteria.JoinType.LEFT)
+                                        .fetch("courseArea", jakarta.persistence.criteria.JoinType.LEFT);
+                    }
+                    query.distinct(true);
+                    return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+                };
+
+                List<Tutoring> allConcreteTutoringsForSlot = tutoringRepository.findAll(specConcreteForAllMentors);
+                log.info("NOVA LÓGICA: Encontradas {} mentorias concretas totais (AGENDADA ou PENDENTE) para o slot (todos os mentores): {}", allConcreteTutoringsForSlot.size(), allConcreteTutoringsForSlot.stream().map(t -> String.format("ID: %d, Status: %s, MentorID: %d", t.getId(), t.getStatus(), (t.getMentor() != null ? t.getMentor().getId() : null))).collect(Collectors.toList()));
+
+                List<TutoringRepresentation> resultSlots = new ArrayList<>();
+
+                // Adiciona todas as mentorias concretas encontradas à lista de resultados.
+                // O frontend decidirá como exibi-las (ex: se o usuário é mentor, mostrar opção de gerenciar; se é participante, mostrar opção de sair).
+                for (Tutoring tutoring : allConcreteTutoringsForSlot) {
+                    TutoringRepresentation rep = enrichTutoringRepresentation(tutoring); // enrichTutoringRepresentation já calcula qtdParticipants
+                    if (rep != null) {
+                        log.info("NOVA LÓGICA: Adicionando mentoria concreta ID {} (Status: {}) à lista de resultados.", rep.id(), rep.status());
+                        resultSlots.add(rep);
+                    }
+                }
+
+                // 2. Gerar chaves para TODAS essas mentorias concretas encontradas (para lógica de substituição de disponibilidades)
+                Set<String> concreteTutoringKeysToSupersedeAvailability = generateConcreteTutoringKeys(allConcreteTutoringsForSlot, date);
+                log.info("NOVA LÓGICA: Geradas {} chaves para TODAS as mentorias concretas encontradas, para 'supersede': {}", concreteTutoringKeysToSupersedeAvailability.size(), concreteTutoringKeysToSupersedeAvailability);
+
+
+                // 3. Processar disponibilidades, usando as chaves de TODAS as mentorias concretas para substituição.
+                //    Vamos também remover o filtro que impede o requestingUserId de ver suas próprias disponibilidades.
                 List<MentorAvailability> allAvailabilitiesOnDay = findAllAvailabilitiesByDayOfWeek(
                                 mapJavaDayOfWeekToDayWeekEnum(date.getDayOfWeek()));
+                log.info("NOVA LÓGICA: Encontradas {} disponibilidades totais para o dia da semana {}", allAvailabilitiesOnDay.size(), date.getDayOfWeek());
 
                 allAvailabilitiesOnDay.stream()
-                                .filter(avail -> isAvailabilityRelevantForSlots(avail, requestingUserId, disciplineId))
-                                .filter(avail -> !isAvailabilitySuperseded(avail, concreteTutoringKeys, date))
+                                .filter(avail -> { // Lógica simplificada de relevância
+                                    if (!Boolean.TRUE.equals(avail.getIsAvailable())) return false;
+                                    if (avail.getUser() == null || avail.getUser().getId() == null) return false; // Precisa de mentor
+                                    if (avail.getDiscipline() == null || avail.getDiscipline().getId() == null) return false; // Precisa de disciplina
+
+                                    // Filtra por disciplina SE disciplineId for fornecido
+                                    if (disciplineId.isPresent() && !avail.getDiscipline().getId().equals(disciplineId.get())) {
+                                        return false;
+                                    }
+                                    // NÃO filtra mais se avail.getUser().getId().equals(requestingUserId)
+                                    log.debug("NOVA LÓGICA: Disponibilidade ID {} (Mentor ID {}) é relevante.", (avail.getId() != null ? avail.getId() : "N/A"), (avail.getUser() != null && avail.getUser().getId() != null ? avail.getUser().getId() : "N/A"));
+                                    return true;
+                                 })
+                                .filter(avail -> {
+                                        boolean isSuperseded = isAvailabilitySuperseded(avail, concreteTutoringKeysToSupersedeAvailability, date);
+                                        log.debug("NOVA LÓGICA: Disponibilidade ID {}. Substituída (Superseded) por mentoria PENDENTE/AGENDADA: {}", (avail.getId() != null ? avail.getId() : "N/A"), isSuperseded);
+                                        return !isSuperseded; // Só adiciona se NÃO for substituída
+                                 })
                                 .map(avail -> tutoringMapper.availabilityToTutoringRepresentation(avail, date))
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
-                                .forEach(availableSlots::add);
+                                .forEach(representation -> {
+                                    log.info("NOVA LÓGICA: Adicionando disponibilidade mapeada (A_MARCAR) para Mentor ID {} Disciplina ID {} Data {} {} {}", representation.mentorId(), representation.disciplineId(), representation.tutoringDate(), representation.startTime(), representation.endTime());
+                                    resultSlots.add(representation);
+                                });
 
-                availableSlots
-                                .sort(Comparator.comparing(TutoringRepresentation::startTime,
+                resultSlots.sort(Comparator.comparing(TutoringRepresentation::startTime,
                                                 Comparator.nullsLast(String::compareTo)));
-                return availableSlots;
+                log.info("NOVA LÓGICA: Retornando {} slots no total.", resultSlots.size());
+                return resultSlots;
         }
 
         // --- Métodos de consulta de disponibilidade movidos/implementados aqui ---
@@ -463,22 +512,51 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                         case SUNDAY:
                                 return DayWeek.DOMINGO;
                         default:
-                                // This case should ideally not be reached if all java.time.DayOfWeek values are
-                                // handled.
                                 throw new IllegalArgumentException(
                                                 "Dia da semana não mapeado: " + javaDayOfWeek.name());
                 }
         }
 
         private boolean isTutoringAvailableForUser(Tutoring tutoring, Long requestingUserId) {
-                if (tutoring == null || requestingUserId == null || tutoring.getStatus() != StatusTutoring.AGENDADA)
+                if (tutoring == null || requestingUserId == null) {
+                        log.warn("isTutoringAvailableForUser: Tutoring ou requestingUserId é nulo. Tutoring: {}, UserID: {}",
+                                        tutoring, requestingUserId);
                         return false;
+                }
+
+                // Permitir PENDENTE e AGENDADA como status válidos para um slot "disponível
+                // para entrar"
+                if (tutoring.getStatus() != StatusTutoring.AGENDADA
+                                && tutoring.getStatus() != StatusTutoring.PENDENTE) {
+                        log.debug("isTutoringAvailableForUser: Tutoria ID {} com status {} não é AGENDADA nem PENDENTE. Retornando false.",
+                                        (tutoring.getId() != null ? tutoring.getId() : "N/A"), tutoring.getStatus());
+                        return false;
+                }
+
+                if (tutoring.getMentor() != null && tutoring.getMentor().getId().equals(requestingUserId)) {
+                        log.debug("isTutoringAvailableForUser: Usuário {} é o mentor da tutoria ID {}. Retornando false.",
+                                        requestingUserId, (tutoring.getId() != null ? tutoring.getId() : "N/A"));
+                        return false;
+                }
+
                 long currentParticipants = tutoringParticipantsRepository.countByTutoringId(tutoring.getId());
                 boolean isFull = tutoring.getMaxParticipants() != null
                                 && currentParticipants >= tutoring.getMaxParticipants();
-                if (isFull)
+
+                if (isFull) {
+                        log.debug("isTutoringAvailableForUser: Tutoria ID {} está lotada (Max: {}, Atual: {}). Retornando false.",
+                                        (tutoring.getId() != null ? tutoring.getId() : "N/A"),
+                                        tutoring.getMaxParticipants(), currentParticipants);
                         return false;
-                return !tutoringParticipantsRepository.existsByTutoringIdAndUserId(tutoring.getId(), requestingUserId);
+                }
+
+                boolean alreadyParticipant = tutoringParticipantsRepository
+                                .existsByTutoringIdAndUserId(tutoring.getId(), requestingUserId);
+                if (alreadyParticipant) {
+                        log.debug("isTutoringAvailableForUser: Usuário {} já é participante da tutoria ID {}. Retornando false.",
+                                        requestingUserId, (tutoring.getId() != null ? tutoring.getId() : "N/A"));
+                }
+                return !alreadyParticipant;
         }
 
         private Set<String> generateConcreteTutoringKeys(List<Tutoring> tutorings, LocalDate date) {

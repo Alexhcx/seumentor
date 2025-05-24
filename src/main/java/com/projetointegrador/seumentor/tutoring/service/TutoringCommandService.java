@@ -532,21 +532,27 @@ public class TutoringCommandService implements TutoringCommand {
                                                         "Monitoria não encontrada com ID: " + tutoringId);
                                 });
 
-                if (tutoring.getStatus() != StatusTutoring.AGENDADA) {
-                        log.warn("Add participant failed: Tutoring ID {} is not in AGENDADA status (current: {}).",
+                // Verifica se a mentoria está em um status que permite adicionar participantes
+                if (tutoring.getStatus() != StatusTutoring.AGENDADA
+                                && tutoring.getStatus() != StatusTutoring.PENDENTE) {
+                        log.warn("Add participant failed: Tutoring ID {} is not in AGENDADA or PENDENTE status (current: {}).",
                                         tutoringId, tutoring.getStatus());
+                        // Mensagem de erro ajustada para refletir a lógica
                         throw new TutoringOperationException(
-                                        "Não é possível se inscrever em uma monitoria que não está agendada.");
+                                        "Não é possível se inscrever em uma monitoria que não está agendada ou pendente de confirmação.");
                 }
 
                 User participantUser = userQuery.getUserReferenceById(request.userId());
 
+                // **** VALIDAÇÃO PRINCIPAL: Impede que o mentor da tutoria se adicione como
+                // participante ****
                 if (tutoring.getMentor() != null && tutoring.getMentor().getId().equals(participantUser.getId())) {
                         log.warn("Add participant failed: Mentor (ID: {}) cannot be added as a participant to their own tutoring (ID: {}).",
                                         participantUser.getId(), tutoringId);
                         throw new TutoringOperationException(
-                                        "O mentor da monitoria não pode se inscrever como participante.");
+                                        "O mentor da monitoria não pode se inscrever como participante na própria monitoria.");
                 }
+                // **** FIM DA VALIDAÇÃO PRINCIPAL ****
 
                 List<StatusTutoring> statusesToCheckForConflict = Arrays.asList(
                                 StatusTutoring.PENDENTE, StatusTutoring.AGENDADA, StatusTutoring.EM_ANDAMENTO);
@@ -994,14 +1000,7 @@ public class TutoringCommandService implements TutoringCommand {
                                                         + firstMenteeUser.getLastName();
                                 }
                         } else if (conflict.getMentor() != null && conflict.getMentor().getId().equals(user.getId())) {
-                                // Se o usuário em conflito é o mentor e não há participantes, não é um conflito
-                                // para ele.
-                                // Mas esta condição pode ser mais complexa dependendo da regra de negócio.
-                                // Por agora, se ele é o mentor e a lista de tópicos está vazia (o que indica
-                                // que é ele quem está agendando para si mesmo como mentor),
-                                // não consideramos um conflito no contexto de "já possui uma mentoria".
-                                // Esta parte da lógica de conflito pode precisar de revisão mais aprofundada.
-                                return; // Retornando aqui para evitar a exceção neste caso específico.
+                                return;
                         }
 
                         String withWhom = "[Mentor não carregado]";
@@ -1031,7 +1030,7 @@ public class TutoringCommandService implements TutoringCommand {
                         throw new TutoringOperationException(String.format(
                                         "O %s (você) já possui uma mentoria (%s) que conflita com este horário (%s das %s às %s). Detalhe do conflito: %s",
                                         userRole,
-                                        disciplineNameStr, // Disciplina da mentoria conflitante
+                                        disciplineNameStr,
                                         (date != null ? date.format(TutoringMapper.DATE_FORMATTER) : "N/A"),
                                         (startTime != null ? startTime.format(TutoringMapper.TIME_FORMATTER) : "N/A"),
                                         (endTime != null ? endTime.format(TutoringMapper.TIME_FORMATTER) : "N/A"),
