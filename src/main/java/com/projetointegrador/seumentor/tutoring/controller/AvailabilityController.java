@@ -95,10 +95,9 @@ public class AvailabilityController {
         try {
             UserAvailabilityRepresentation createdAvailability = tutoringCommandService.addMentorAvailability(mentorId, request);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdAvailability);
-        } catch (UserNotFoundException | com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException e) { // Ajustar para a exceção correta de disciplina
-            log.warn("Controller: Add availability failed for mentor {}: {}", mentorId, e.getMessage());
+        } catch (UserNotFoundException | com.projetointegrador.seumentor.course.exception.DisciplineNotFoundException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-        } catch (TutoringOperationException | IllegalArgumentException e) { // IllegalArgumentException para conflitos, etc.
+        } catch (TutoringOperationException | IllegalArgumentException e) { 
             log.warn("Controller: Add availability failed for mentor {}: {}", mentorId, e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         } catch (Exception e) {
