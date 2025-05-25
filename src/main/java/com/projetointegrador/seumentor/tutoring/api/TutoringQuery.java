@@ -1,4 +1,3 @@
-// Arquivo: src/main/java/com/projetointegrador/seumentor/tutoring/api/TutoringQuery.java
 package com.projetointegrador.seumentor.tutoring.api;
 
 import com.projetointegrador.seumentor.common.enums.DayWeek;
@@ -8,7 +7,7 @@ import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRatingRepresenta
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
 import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
-import com.projetointegrador.seumentor.tutoring.model.MentorAvailability; // Import necessário
+import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.tutoring.model.TutoringRating;
 import org.springframework.transaction.annotation.Transactional;
 

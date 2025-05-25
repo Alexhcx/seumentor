@@ -39,9 +39,9 @@ public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final CourseAreaRepository courseAreaRepository;
     private final DisciplineRepository disciplineRepository;
-    private final MentorAvailabilityRepository mentorAvailabilityRepository; // Adicionado
-    private final TutoringRepository tutoringRepository; // Adicionado
-    private final TutoringParticipantsRepository tutoringParticipantsRepository; // Adicionado
+    private final MentorAvailabilityRepository mentorAvailabilityRepository; 
+    private final TutoringRepository tutoringRepository;
+    private final TutoringParticipantsRepository tutoringParticipantsRepository; 
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
 

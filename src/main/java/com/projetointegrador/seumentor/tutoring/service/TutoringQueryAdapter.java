@@ -3,7 +3,7 @@ package com.projetointegrador.seumentor.tutoring.service;
 import com.projetointegrador.seumentor.common.enums.DayWeek;
 import com.projetointegrador.seumentor.course.model.Discipline;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
-import com.projetointegrador.seumentor.tutoring.api.UserAvailabilityFinder; // Importar se for implementar diretamente
+import com.projetointegrador.seumentor.tutoring.api.UserAvailabilityFinder;
 import com.projetointegrador.seumentor.tutoring.api.dto.*;
 import com.projetointegrador.seumentor.tutoring.api.mapper.TutoringMapper;
 import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
@@ -29,6 +29,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -246,85 +247,145 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                 return results;
         }
 
-                @Override
+        @Override
         @Transactional(readOnly = true)
         public List<TutoringRepresentation> findAvailableSlotsForUser(LocalDate date, Optional<Long> disciplineId,
                         Long requestingUserId) {
-                log.info("NOVA LÓGICA: Buscando slots para User ID: {} em Data: {}, Disciplina ID: {}", requestingUserId, date, disciplineId.orElse(null));
+                log.info("NOVA LÓGICA: Buscando slots para User ID: {} em Data: {}, Disciplina ID: {}",
+                                requestingUserId, date, disciplineId.orElse(null));
 
-                // 1. Buscar TODAS as mentorias concretas (PENDENTE ou AGENDADA) para o slot,
-                //    INCLUINDO aquelas onde o requestingUserId é o mentor.
-                //    A Specification precisa ser ajustada para NÃO excluir mentorias do requestingUserId.
+                LocalDate currentDate = LocalDate.now(); // Data atual
+                LocalTime currentTime = LocalTime.now(); // Hora atual
+
+                // 1. Buscar TODAS as mentorias concretas (PENDENTE ou AGENDADA) para o slot
                 Specification<Tutoring> specConcreteForAllMentors = (root, query, cb) -> {
-                    List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
-                    predicates.add(cb.equal(root.get("tutoringDate"), date));
-                    disciplineId.ifPresent(discId -> predicates.add(cb.equal(root.get("discipline").get("id"), discId)));
-                    predicates.add(root.get("status").in(StatusTutoring.AGENDADA, StatusTutoring.PENDENTE));
+                        List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+                        predicates.add(cb.equal(root.get("tutoringDate"), date));
+                        disciplineId.ifPresent(
+                                        discId -> predicates.add(cb.equal(root.get("discipline").get("id"), discId)));
+                        predicates.add(root.get("status").in(StatusTutoring.AGENDADA, StatusTutoring.PENDENTE));
 
-                    if (query.getResultType() != Long.class && query.getResultType() != long.class) {
-                        root.fetch("mentor", jakarta.persistence.criteria.JoinType.LEFT);
-                        root.fetch("discipline", jakarta.persistence.criteria.JoinType.LEFT)
-                                        .fetch("courseArea", jakarta.persistence.criteria.JoinType.LEFT);
-                    }
-                    query.distinct(true);
-                    return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+                        if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                                root.fetch("mentor", jakarta.persistence.criteria.JoinType.LEFT);
+                                root.fetch("discipline", jakarta.persistence.criteria.JoinType.LEFT)
+                                                .fetch("courseArea", jakarta.persistence.criteria.JoinType.LEFT);
+                        }
+                        query.distinct(true);
+                        return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
                 };
 
                 List<Tutoring> allConcreteTutoringsForSlot = tutoringRepository.findAll(specConcreteForAllMentors);
-                log.info("NOVA LÓGICA: Encontradas {} mentorias concretas totais (AGENDADA ou PENDENTE) para o slot (todos os mentores): {}", allConcreteTutoringsForSlot.size(), allConcreteTutoringsForSlot.stream().map(t -> String.format("ID: %d, Status: %s, MentorID: %d", t.getId(), t.getStatus(), (t.getMentor() != null ? t.getMentor().getId() : null))).collect(Collectors.toList()));
+                log.info("NOVA LÓGICA: Encontradas {} mentorias concretas totais (AGENDADA ou PENDENTE) para o slot (todos os mentores): {}",
+                                allConcreteTutoringsForSlot.size(),
+                                allConcreteTutoringsForSlot.stream()
+                                                .map(t -> String.format(
+                                                                "ID: %d, Status: %s, MentorID: %d, Start: %s, End: %s",
+                                                                t.getId(), t.getStatus(),
+                                                                (t.getMentor() != null ? t.getMentor().getId() : null),
+                                                                t.getStartTime(), t.getEndTime()))
+                                                .collect(Collectors.toList()));
 
                 List<TutoringRepresentation> resultSlots = new ArrayList<>();
+                List<Tutoring> validConcreteTutorings = new ArrayList<>();
 
-                // Adiciona todas as mentorias concretas encontradas à lista de resultados.
-                // O frontend decidirá como exibi-las (ex: se o usuário é mentor, mostrar opção de gerenciar; se é participante, mostrar opção de sair).
+                // Filtra mentorias concretas que já passaram (se for o dia atual)
                 for (Tutoring tutoring : allConcreteTutoringsForSlot) {
-                    TutoringRepresentation rep = enrichTutoringRepresentation(tutoring); // enrichTutoringRepresentation já calcula qtdParticipants
-                    if (rep != null) {
-                        log.info("NOVA LÓGICA: Adicionando mentoria concreta ID {} (Status: {}) à lista de resultados.", rep.id(), rep.status());
-                        resultSlots.add(rep);
-                    }
+                        boolean include = true;
+                        if (date.equals(currentDate)) {
+                                if (tutoring.getEndTime() != null && tutoring.getEndTime().isBefore(currentTime)) {
+                                        log.info("NOVA LÓGICA (Filtro Tempo): Mentoria concreta ID {} (Status: {}) descartada pois o horário de término {} já passou (horário atual: {}).",
+                                                        tutoring.getId(), tutoring.getStatus(), tutoring.getEndTime(),
+                                                        currentTime);
+                                        include = false;
+                                }
+                        }
+                        if (include) {
+                                validConcreteTutorings.add(tutoring);
+                        }
+                }
+                log.info("NOVA LÓGICA (Filtro Tempo): {} mentorias concretas restantes após filtro de horário.",
+                                validConcreteTutorings.size());
+
+                // Adiciona mentorias concretas válidas à lista de resultados
+                for (Tutoring tutoring : validConcreteTutorings) {
+                        TutoringRepresentation rep = enrichTutoringRepresentation(tutoring);
+                        if (rep != null) {
+                                log.info("NOVA LÓGICA: Adicionando mentoria concreta ID {} (Status: {}) à lista de resultados.",
+                                                rep.id(), rep.status());
+                                resultSlots.add(rep);
+                        }
                 }
 
-                // 2. Gerar chaves para TODAS essas mentorias concretas encontradas (para lógica de substituição de disponibilidades)
-                Set<String> concreteTutoringKeysToSupersedeAvailability = generateConcreteTutoringKeys(allConcreteTutoringsForSlot, date);
-                log.info("NOVA LÓGICA: Geradas {} chaves para TODAS as mentorias concretas encontradas, para 'supersede': {}", concreteTutoringKeysToSupersedeAvailability.size(), concreteTutoringKeysToSupersedeAvailability);
+                // 2. Gerar chaves para TODAS essas mentorias concretas VÁLIDAS (para lógica de
+                // substituição de disponibilidades)
+                Set<String> concreteTutoringKeysToSupersedeAvailability = generateConcreteTutoringKeys(
+                                validConcreteTutorings, date);
+                log.info("NOVA LÓGICA: Geradas {} chaves para mentorias concretas VÁLIDAS, para 'supersede': {}",
+                                concreteTutoringKeysToSupersedeAvailability.size(),
+                                concreteTutoringKeysToSupersedeAvailability);
 
-
-                // 3. Processar disponibilidades, usando as chaves de TODAS as mentorias concretas para substituição.
-                //    Vamos também remover o filtro que impede o requestingUserId de ver suas próprias disponibilidades.
+                // 3. Processar disponibilidades (slots A_MARCAR)
                 List<MentorAvailability> allAvailabilitiesOnDay = findAllAvailabilitiesByDayOfWeek(
                                 mapJavaDayOfWeekToDayWeekEnum(date.getDayOfWeek()));
-                log.info("NOVA LÓGICA: Encontradas {} disponibilidades totais para o dia da semana {}", allAvailabilitiesOnDay.size(), date.getDayOfWeek());
+                log.info("NOVA LÓGICA: Encontradas {} disponibilidades totais para o dia da semana {}",
+                                allAvailabilitiesOnDay.size(), date.getDayOfWeek());
 
                 allAvailabilitiesOnDay.stream()
-                                .filter(avail -> { // Lógica simplificada de relevância
-                                    if (!Boolean.TRUE.equals(avail.getIsAvailable())) return false;
-                                    if (avail.getUser() == null || avail.getUser().getId() == null) return false; // Precisa de mentor
-                                    if (avail.getDiscipline() == null || avail.getDiscipline().getId() == null) return false; // Precisa de disciplina
+                                .filter(avail -> { // Lógica de relevância da disponibilidade
+                                        if (!Boolean.TRUE.equals(avail.getIsAvailable()))
+                                                return false;
+                                        if (avail.getUser() == null || avail.getUser().getId() == null)
+                                                return false;
+                                        if (avail.getDiscipline() == null || avail.getDiscipline().getId() == null)
+                                                return false;
 
-                                    // Filtra por disciplina SE disciplineId for fornecido
-                                    if (disciplineId.isPresent() && !avail.getDiscipline().getId().equals(disciplineId.get())) {
-                                        return false;
-                                    }
-                                    // NÃO filtra mais se avail.getUser().getId().equals(requestingUserId)
-                                    log.debug("NOVA LÓGICA: Disponibilidade ID {} (Mentor ID {}) é relevante.", (avail.getId() != null ? avail.getId() : "N/A"), (avail.getUser() != null && avail.getUser().getId() != null ? avail.getUser().getId() : "N/A"));
-                                    return true;
-                                 })
-                                .filter(avail -> {
-                                        boolean isSuperseded = isAvailabilitySuperseded(avail, concreteTutoringKeysToSupersedeAvailability, date);
-                                        log.debug("NOVA LÓGICA: Disponibilidade ID {}. Substituída (Superseded) por mentoria PENDENTE/AGENDADA: {}", (avail.getId() != null ? avail.getId() : "N/A"), isSuperseded);
+                                        if (disciplineId.isPresent()
+                                                        && !avail.getDiscipline().getId().equals(disciplineId.get())) {
+                                                return false;
+                                        }
+                                        // Adiciona filtro de tempo para disponibilidades no dia atual
+                                        if (date.equals(currentDate)) {
+                                                if (avail.getEndTime() != null
+                                                                && avail.getEndTime().isBefore(currentTime)) {
+                                                        log.debug("NOVA LÓGICA (Filtro Tempo): Disponibilidade (A_MARCAR) ID {} (Mentor ID {}) descartada pois o horário de término {} já passou (horário atual: {}).",
+                                                                        (avail.getId() != null ? avail.getId() : "N/A"),
+                                                                        (avail.getUser() != null && avail.getUser()
+                                                                                        .getId() != null ? avail
+                                                                                                        .getUser()
+                                                                                                        .getId()
+                                                                                                        : "N/A"),
+                                                                        avail.getEndTime(), currentTime);
+                                                        return false;
+                                                }
+                                        }
+                                        log.debug("NOVA LÓGICA: Disponibilidade ID {} (Mentor ID {}) é relevante (incluindo filtro de tempo).",
+                                                        (avail.getId() != null ? avail.getId() : "N/A"),
+                                                        (avail.getUser() != null && avail.getUser().getId() != null
+                                                                        ? avail.getUser().getId()
+                                                                        : "N/A"));
+                                        return true;
+                                })
+                                .filter(avail -> { // Filtro para não mostrar disponibilidade se já existe mentoria
+                                                   // concreta para ela
+                                        boolean isSuperseded = isAvailabilitySuperseded(avail,
+                                                        concreteTutoringKeysToSupersedeAvailability, date);
+                                        log.debug("NOVA LÓGICA: Disponibilidade ID {}. Substituída (Superseded) por mentoria PENDENTE/AGENDADA: {}",
+                                                        (avail.getId() != null ? avail.getId() : "N/A"), isSuperseded);
                                         return !isSuperseded; // Só adiciona se NÃO for substituída
-                                 })
+                                })
                                 .map(avail -> tutoringMapper.availabilityToTutoringRepresentation(avail, date))
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
                                 .forEach(representation -> {
-                                    log.info("NOVA LÓGICA: Adicionando disponibilidade mapeada (A_MARCAR) para Mentor ID {} Disciplina ID {} Data {} {} {}", representation.mentorId(), representation.disciplineId(), representation.tutoringDate(), representation.startTime(), representation.endTime());
-                                    resultSlots.add(representation);
+                                        log.info("NOVA LÓGICA: Adicionando disponibilidade mapeada (A_MARCAR) para Mentor ID {} Disciplina ID {} Data {} {} {}",
+                                                        representation.mentorId(), representation.disciplineId(),
+                                                        representation.tutoringDate(), representation.startTime(),
+                                                        representation.endTime());
+                                        resultSlots.add(representation);
                                 });
 
                 resultSlots.sort(Comparator.comparing(TutoringRepresentation::startTime,
-                                                Comparator.nullsLast(String::compareTo)));
+                                Comparator.nullsLast(String::compareTo)));
                 log.info("NOVA LÓGICA: Retornando {} slots no total.", resultSlots.size());
                 return resultSlots;
         }

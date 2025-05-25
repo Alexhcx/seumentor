@@ -135,22 +135,28 @@ public class TutoringController {
 
     @GetMapping("/users/{userId}/disciplines/{disciplineId}/available-tutorings")
     @PreAuthorize("#userId == authentication.principal.id or hasAuthority('ADMIN')")
-    @Operation(summary = "Busca mentorias e disponibilidades para o usuário logado em uma disciplina", description = "Retorna uma lista de mentorias e disponibilidades de OUTROS mentores para o usuário especificado ({userId}), em uma disciplina e data específicas. Exclui mentorias e disponibilidades ofertadas pelo próprio {userId}.")
+    @Operation(summary = "Busca mentorias e disponibilidades para o usuário logado em uma disciplina", description = "Retorna uma lista de mentorias e disponibilidades de OUTROS mentores para o usuário especificado ({userId}), em uma disciplina e data específicas. Exclui mentorias e disponibilidades ofertadas pelo próprio {userId}. Filtra horários que já passaram no dia corrente.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Lista de horários disponíveis retornada com sucesso", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = TutoringRepresentation.class)))),
-            @ApiResponse(responseCode = "400", description = "Data inválida", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Não autorizado (usuário não logado)", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário tentando acessar dados de outro usuário sem ser ADMIN)", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Usuário ou Disciplina não encontrado", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Data inválida (ex: data no passado)", content = @Content),
+    // ... (outras ApiResponses)
     })
     public ResponseEntity<List<TutoringRepresentation>> getAvailableTutoringsForUserAndDiscipline(
             @Parameter(description = "ID do usuário para o qual se busca mentorias/disponibilidades (deve ser o ID do usuário autenticado ou requisição feita por ADMIN)", required = true) @PathVariable Long userId,
             @Parameter(description = "ID da Disciplina para filtrar", required = true) @PathVariable Long disciplineId,
-            @Parameter(description = "Data para buscar (formato AAAA-MM-DD)", required = true, in = ParameterIn.QUERY, example = "2025-05-20") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @Parameter(hidden = true) Authentication authentication) { // Added Authentication for PreAuthorize check
+            @Parameter(description = "Data para buscar (formato AAAA-MM-DD)", required = true, in = ParameterIn.QUERY, example = "2025-05-24") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Parameter(hidden = true) Authentication authentication) {
         log.info("Received request for available tutorings for user ID: {} in discipline ID: {} on date: {}",
                 userId, disciplineId, date);
+
+        // Validação da data: não pode ser no passado
+        if (date.isBefore(LocalDate.now())) {
+            log.warn("Failed to get available tutorings for user {}: Date {} is in the past.", userId, date);
+            // Retorna uma lista vazia ou um erro 400, dependendo da preferência.
+            // Aqui, optamos por um 400 Bad Request.
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data da consulta não pode ser no passado.");
+        }
+
         try {
             List<TutoringRepresentation> results = tutoringQueryService.findAvailableSlotsForUser(date,
                     Optional.of(disciplineId), userId);
@@ -183,7 +189,6 @@ public class TutoringController {
 
         log.info("Received request to schedule tutoring: {}", request);
         try {
-            // MUDANÇA AQUI: Tipo da variável de resposta
             ScheduledTutoringRepresentation response = tutoringCommandService.scheduleTutoring(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (UserNotFoundException | DisciplineNotFoundException e) {
@@ -202,48 +207,41 @@ public class TutoringController {
         }
     }
 
-    @PostMapping("/{tutoringId}/participants")
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Adiciona um participante a uma mentoria", description = "Inscreve um usuário como participante em uma mentoria agendada. Requer autenticação.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Participante adicionado com sucesso", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
-            @ApiResponse(responseCode = "400", description = "Operação inválida (ex: mentoria não está AGENDADA, mentoria lotada, usuário já participa)", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Mentoria ou Usuário não encontrado(a)", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado (regra de negócio impede inscrição, e.g., user trying to add someone else)", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
-    })
-    public ResponseEntity<TutoringRepresentation> addParticipant(
-            @Parameter(description = "ID da mentoria à qual adicionar o participante", required = true, in = ParameterIn.PATH) @PathVariable Long tutoringId,
-            @RequestBody(description = "ID do usuário a ser adicionado e o tópico de interesse", required = true, content = @Content(schema = @Schema(implementation = AddParticipantRequest.class))) @Valid @org.springframework.web.bind.annotation.RequestBody AddParticipantRequest request,
-            @Parameter(hidden = true) Authentication authentication) {
-        log.info("Received request to add participant to tutoring ID: {}", tutoringId);
-        try {
-            if (!request.userId().toString().equals(authentication.getName())) {
-                log.warn("User {} attempted to add different user {} to tutoring {}", authentication.getName(),
-                        request.userId(), tutoringId);
-                throw new AccessDeniedException("Não é permitido adicionar outro usuário como participante.");
-            }
-
-            TutoringRepresentation response = tutoringCommandService.addParticipant(tutoringId, request,
-                    authentication);
-            return ResponseEntity.ok(response);
-        } catch (TutoringNotFoundException | UserNotFoundException e) {
-            log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-        } catch (TutoringOperationException e) {
-            log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        } catch (AccessDeniedException e) {
-            log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage(), e);
-        } catch (Exception e) {
-            log.error("Error adding participant to tutoring ID {}: {}", tutoringId, e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Erro interno ao adicionar participante.", e);
-        }
+@PostMapping("/{tutoringId}/participants")
+@PreAuthorize("isAuthenticated()")
+@Operation(summary = "Adiciona o usuário autenticado como participante a uma mentoria", description = "Inscreve o usuário autenticado como participante em uma mentoria agendada. Requer autenticação. Admins também podem usar este endpoint para adicionar qualquer usuário.")
+@ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Participante adicionado com sucesso", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
+        @ApiResponse(responseCode = "400", description = "Operação inválida (ex: mentoria não está no status correto, mentoria lotada, usuário já participa)", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Mentoria ou Usuário (do payload) não encontrado(a)", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Acesso negado (usuário autenticado não tem permissão para adicionar o userId do payload, ou outras regras de negócio)", content = @Content),
+        @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+})
+public ResponseEntity<TutoringRepresentation> addParticipant(
+        @Parameter(description = "ID da mentoria à qual adicionar o participante", required = true, in = ParameterIn.PATH) @PathVariable Long tutoringId,
+        @RequestBody(description = "ID do usuário a ser adicionado (deve ser o ID do usuário autenticado, a menos que o requisitante seja ADMIN) e o tópico de interesse", required = true, content = @Content(schema = @Schema(implementation = AddParticipantRequest.class)))
+        @Valid @org.springframework.web.bind.annotation.RequestBody AddParticipantRequest request,
+        @Parameter(hidden = true) Authentication authentication) {
+    log.info("Received request to add participant with userId {} (from request body) to tutoring ID: {}. Authenticated user: {}", request.userId(), tutoringId, authentication.getName());
+    try {
+        TutoringRepresentation response = tutoringCommandService.addParticipant(tutoringId, request, authentication);
+        return ResponseEntity.ok(response);
+    } catch (TutoringNotFoundException | UserNotFoundException e) {
+        log.warn("Add participant failed for tutoring ID {} (participant userId in request: {}): {}", tutoringId, request.userId(), e.getMessage());
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+    } catch (TutoringOperationException e) {
+        log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+    } catch (AccessDeniedException e) { // Será lançada pelo serviço se a autorização falhar
+        log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage(), e);
+    } catch (Exception e) {
+        log.error("Error adding participant (userId in request: {}) to tutoring ID {}: {}", request.userId(), tutoringId, e.getMessage(), e);
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Erro interno ao adicionar participante.", e);
     }
-
+}
     @PostMapping("/{tutoringId}/ratings")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Adiciona uma avaliação a uma mentoria concluída", description = "Permite que um participante avalie uma mentoria após sua conclusão. Requer autenticação.")
@@ -382,14 +380,11 @@ public class TutoringController {
         }
     }
 
-     @GetMapping("/{id}/mentoring-sessions")
+    @GetMapping("/{id}/mentoring-sessions")
     @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
-    @Operation(summary = "Lista as mentorias em que o usuário é o mentor",
-            description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado atua como mentor.")
+    @Operation(summary = "Lista as mentorias em que o usuário é o mentor", description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado atua como mentor.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de mentorias (como mentor) retornada com sucesso",
-                    content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = TutoringRepresentation.class)))),
+            @ApiResponse(responseCode = "200", description = "Lista de mentorias (como mentor) retornada com sucesso", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = TutoringRepresentation.class)))),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
             @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
             @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
@@ -402,23 +397,23 @@ public class TutoringController {
             List<TutoringRepresentation> sessions = tutoringQueryService.getUserMentoringSessions(id);
             return ResponseEntity.ok(sessions);
         } catch (UserNotFoundException e) {
-            log.warn("Controller: User not found when fetching mentoring sessions for user ID {}: {}", id, e.getMessage());
+            log.warn("Controller: User not found when fetching mentoring sessions for user ID {}: {}", id,
+                    e.getMessage());
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
         } catch (Exception e) {
             log.error("Controller: Error fetching mentoring sessions for user ID {}: {}", id, e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar sessões de mentoria (como mentor)", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Erro ao buscar sessões de mentoria (como mentor)", e);
         }
     }
 
     @GetMapping("/{id}/participation-sessions")
     @PreAuthorize("#id == authentication.principal.id or hasAuthority('ADMIN')")
-    @Operation(summary = "Lista as mentorias em que o usuário é participante",
-            description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado está inscrito como participante (mentorado), com foco nos tópicos e quantidade de participantes.")
+    @Operation(summary = "Lista as mentorias em que o usuário é participante", description = "Retorna uma lista de todas as sessões de mentoria onde o usuário especificado está inscrito como participante (mentorado), com foco nos tópicos e quantidade de participantes.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de mentorias (como participante) retornada com sucesso",
-                    content = @Content(mediaType = "application/json",
-                            // Altere o schema para o novo DTO
-                            array = @ArraySchema(schema = @Schema(implementation = TutoringParticipationRepresentation.class)))),
+            @ApiResponse(responseCode = "200", description = "Lista de mentorias (como participante) retornada com sucesso", content = @Content(mediaType = "application/json",
+                    // Altere o schema para o novo DTO
+                    array = @ArraySchema(schema = @Schema(implementation = TutoringParticipationRepresentation.class)))),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
             @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
             @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
@@ -426,16 +421,21 @@ public class TutoringController {
     })
     public ResponseEntity<List<TutoringParticipationRepresentation>> getUserParticipationSessions(
             @Parameter(description = "ID do usuário", required = true) @PathVariable Long id) {
-        log.info("Controller: Requisição para sessões de participação do usuário ID: {} usando TutoringParticipationRepresentation", id);
+        log.info(
+                "Controller: Requisição para sessões de participação do usuário ID: {} usando TutoringParticipationRepresentation",
+                id);
         try {
             List<TutoringParticipationRepresentation> sessions = tutoringQueryService.getUserParticipationSessions(id);
             return ResponseEntity.ok(sessions);
         } catch (UserNotFoundException e) {
-            log.warn("Controller: Usuário não encontrado ao buscar sessões de participação para o ID {}: {}", id, e.getMessage());
+            log.warn("Controller: Usuário não encontrado ao buscar sessões de participação para o ID {}: {}", id,
+                    e.getMessage());
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
         } catch (Exception e) {
-            log.error("Controller: Erro ao buscar sessões de participação para o usuário ID {}: {}", id, e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao buscar sessões de participação em mentoria", e);
+            log.error("Controller: Erro ao buscar sessões de participação para o usuário ID {}: {}", id, e.getMessage(),
+                    e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Erro ao buscar sessões de participação em mentoria", e);
         }
     }
 
@@ -453,7 +453,7 @@ public class TutoringController {
             @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
     })
     public ResponseEntity<TutoringRepresentation> cancelMentorTutoring(
-            @Parameter(description = "ID do usuário mentor", required = true) @PathVariable Long userId, 
+            @Parameter(description = "ID do usuário mentor", required = true) @PathVariable Long userId,
             @Parameter(description = "ID da mentoria a ser cancelada", required = true) @PathVariable Long tutoringId,
             @Parameter(description = "Se true, desativa também a disponibilidade do mentor que cobria esta mentoria (se encontrada e ativa)", required = false) @RequestParam(required = false, defaultValue = "false") boolean deactivateAvailability,
             @Parameter(hidden = true) Authentication authentication) {

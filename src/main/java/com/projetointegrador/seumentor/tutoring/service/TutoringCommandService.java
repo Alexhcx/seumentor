@@ -534,8 +534,9 @@ public class TutoringCommandService implements TutoringCommand {
 
                 // Verifica se a mentoria está em um status que permite adicionar participantes
                 if (tutoring.getStatus() != StatusTutoring.AGENDADA
-                                && tutoring.getStatus() != StatusTutoring.PENDENTE) {
-                        log.warn("Add participant failed: Tutoring ID {} is not in AGENDADA or PENDENTE status (current: {}).",
+                                && tutoring.getStatus() != StatusTutoring.PENDENTE
+                                && tutoring.getStatus() != StatusTutoring.EM_ANDAMENTO) {
+                        log.warn("Add participant failed: Tutoring ID {} is not in AGENDADA, PENDENTE  or EM ANDAMENTO status (current: {}).",
                                         tutoringId, tutoring.getStatus());
                         // Mensagem de erro ajustada para refletir a lógica
                         throw new TutoringOperationException(
