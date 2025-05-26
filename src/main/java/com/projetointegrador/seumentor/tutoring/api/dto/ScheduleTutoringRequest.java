@@ -21,7 +21,7 @@ public record ScheduleTutoringRequest(
         @Schema(description = "ID do usuário mentorado (quem está solicitando)", example = "52", requiredMode = Schema.RequiredMode.REQUIRED)
         Long menteeId,
 
-        @NotBlank
+        
         @Schema(description = "Tópico ou dúvida principal para a mentoria", example = "Revisão para a prova de Cálculo II", requiredMode = Schema.RequiredMode.REQUIRED)
         String topic,
 
