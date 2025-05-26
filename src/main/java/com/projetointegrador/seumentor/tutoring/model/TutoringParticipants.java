@@ -23,7 +23,7 @@ public class TutoringParticipants extends BaseEntity implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column
     private String topic;
 
     @ManyToOne(fetch = FetchType.LAZY)
