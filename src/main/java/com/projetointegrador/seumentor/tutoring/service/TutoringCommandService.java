@@ -40,9 +40,12 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -55,9 +58,23 @@ public class TutoringCommandService implements TutoringCommand {
 
         private final UserQuery userQuery;
         private final DisciplineQuery disciplineQuery;
-        private final TutoringQuery tutoringQuery; // Injetado para uso interno, se necessário
-        private final UserCommand userCommand; // Para promover usuário a mentor
+        private final TutoringQuery tutoringQuery;
+        private final UserCommand userCommand;
         private final TutoringMapper tutoringMapper;
+
+        private static final Map<StatusTutoring, Set<StatusTutoring>> MENTOR_ALLOWED_TRANSITIONS = new HashMap<>();
+
+        static {
+                MENTOR_ALLOWED_TRANSITIONS.put(StatusTutoring.A_MARCAR, Set.of(StatusTutoring.PENDENTE));
+                MENTOR_ALLOWED_TRANSITIONS.put(StatusTutoring.PENDENTE,
+                                Set.of(StatusTutoring.AGENDADA, StatusTutoring.CANCELADA));
+                MENTOR_ALLOWED_TRANSITIONS.put(StatusTutoring.AGENDADA,
+                                Set.of(StatusTutoring.EM_ANDAMENTO, StatusTutoring.CANCELADA));
+                MENTOR_ALLOWED_TRANSITIONS.put(StatusTutoring.EM_ANDAMENTO,
+                                Set.of(StatusTutoring.CONCLUIDA, StatusTutoring.CANCELADA));
+                MENTOR_ALLOWED_TRANSITIONS.put(StatusTutoring.CONCLUIDA, Set.of());
+                MENTOR_ALLOWED_TRANSITIONS.put(StatusTutoring.CANCELADA, Set.of());
+        }
 
         private static final Logger log = LoggerFactory.getLogger(TutoringCommandService.class);
 
@@ -466,32 +483,98 @@ public class TutoringCommandService implements TutoringCommand {
                 boolean isMentorOfTutoring = tutoring.getMentor() != null
                                 && tutoring.getMentor().getId().equals(authenticatedUser.getId());
 
-                if (!isAdmin && !isMentorOfTutoring) { // Somente Admin ou o mentor da tutoria podem alterar certos
-                                                       // status
-                        throw new AccessDeniedException("Usuário não autorizado para esta alteração de status.");
-                }
-
-                // Validações de transição de status (exemplo)
                 StatusTutoring newStatus = request.status();
                 StatusTutoring currentStatus = tutoring.getStatus();
+                LocalDate currentDate = LocalDate.now();
+                LocalTime currentTime = LocalTime.now();
 
-                if (isMentorOfTutoring && !isAdmin) { // Regras específicas para mentor não-admin
-                        if (newStatus == StatusTutoring.EM_ANDAMENTO && currentStatus != StatusTutoring.AGENDADA) {
-                                throw new TutoringOperationException("Mentoria só pode iniciar se estiver AGENDADA.");
+                if (isAdmin) {
+                        log.info("Admin {} is updating status for tutoring ID {} from {} to {}", requestingUserEmail,
+                                        tutoringId, currentStatus, newStatus);
+                        Set<StatusTutoring> allowedTransitionsForCurrentStatus = MENTOR_ALLOWED_TRANSITIONS
+                                        .getOrDefault(currentStatus, Set.of());
+                        if (!allowedTransitionsForCurrentStatus.contains(newStatus)) {
+                                log.warn("Admin {} attempted an invalid status transition for tutoring ID {} from {} to {}.",
+                                                requestingUserEmail, tutoringId, currentStatus, newStatus);
                         }
-                        if (newStatus == StatusTutoring.CONCLUIDA && currentStatus != StatusTutoring.EM_ANDAMENTO) {
+                } else if (isMentorOfTutoring) {
+                        Set<StatusTutoring> allowedTransitions = MENTOR_ALLOWED_TRANSITIONS.get(currentStatus);
+                        if (allowedTransitions == null || !allowedTransitions.contains(newStatus)) {
+                                log.warn("Mentor {} attempted an invalid status transition for tutoring ID {} from {} to {}.",
+                                                requestingUserEmail, tutoringId, currentStatus, newStatus);
                                 throw new TutoringOperationException(
-                                                "Mentoria só pode ser concluída se estiver EM ANDAMENTO.");
+                                                String.format("Como mentor, você não pode mudar o status de '%s' para '%s'.",
+                                                                currentStatus, newStatus));
                         }
-                        // Cancelamento pelo mentor já é tratado em cancelMentorTutoring
+
+                        if (newStatus == StatusTutoring.EM_ANDAMENTO) {
+                                if (currentStatus != StatusTutoring.AGENDADA) {
+                                        throw new TutoringOperationException(
+                                                        "Mentoria só pode iniciar se estiver AGENDADA.");
+                                }
+                                if (tutoring.getTutoringDate() == null || tutoring.getStartTime() == null
+                                                || tutoring.getEndTime() == null) {
+                                        throw new TutoringOperationException(
+                                                        "Mentoria não possui data/horário definidos para iniciar.");
+                                }
+                                if (!tutoring.getTutoringDate().equals(currentDate)) {
+                                        throw new TutoringOperationException(
+                                                        "A mentoria só pode ser iniciada no dia agendado ("
+                                                                        + tutoring.getTutoringDate().format(
+                                                                                        TutoringMapper.DATE_FORMATTER)
+                                                                        + ").");
+                                }
+                                if (currentTime.isBefore(tutoring.getStartTime())) {
+                                        throw new TutoringOperationException(
+                                                        "A mentoria ainda não começou. Início programado para "
+                                                                        + tutoring.getStartTime().format(
+                                                                                        TutoringMapper.TIME_FORMATTER)
+                                                                        + ".");
+                                }
+                                if (currentTime.isAfter(tutoring.getEndTime())) {
+                                        throw new TutoringOperationException("O horário da mentoria já terminou ("
+                                                        + tutoring.getEndTime().format(TutoringMapper.TIME_FORMATTER)
+                                                        + "). Não é possível iniciar.");
+                                }
+                        }
+
+                        if (newStatus == StatusTutoring.CONCLUIDA) {
+                                if (currentStatus != StatusTutoring.EM_ANDAMENTO) {
+                                        throw new TutoringOperationException(
+                                                        "Mentoria só pode ser concluída se estiver EM ANDAMENTO.");
+                                }
+                                if (tutoring.getTutoringDate() == null || tutoring.getEndTime() == null) {
+                                        throw new TutoringOperationException(
+                                                        "Mentoria não possui data/horário de término definidos para concluir.");
+                                }
+
+                                if (!tutoring.getTutoringDate().equals(currentDate)) {
+                                        throw new TutoringOperationException(
+                                                        "A mentoria só pode ser concluída no dia agendado ("
+                                                                        + tutoring.getTutoringDate().format(
+                                                                                        TutoringMapper.DATE_FORMATTER)
+                                                                        + ").");
+                                }
+                                if (currentTime.isBefore(tutoring.getEndTime())) {
+                                        throw new TutoringOperationException(
+                                                        "A mentoria ainda não terminou. Término programado para "
+                                                                        + tutoring.getEndTime().format(
+                                                                                        TutoringMapper.TIME_FORMATTER)
+                                                                        + ".");
+                                }
+                        }
+
+                } else {
+                        log.warn("User {} (not mentor or admin) attempted to update status for tutoring ID {}.",
+                                        requestingUserEmail, tutoringId);
+                        throw new AccessDeniedException("Usuário não autorizado para esta alteração de status.");
                 }
-                // Admin pode ter mais flexibilidade, ou regras específicas podem ser
-                // adicionadas aqui
 
                 tutoring.setStatus(newStatus);
                 Tutoring updatedTutoring = tutoringRepository.save(tutoring);
                 log.info("Status for tutoring ID: {} updated from {} to {} by user {}", tutoringId, currentStatus,
                                 newStatus, requestingUserEmail);
+
                 return tutoringQuery.findTutoringById(updatedTutoring.getId())
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "Falha ao buscar monitoria recém-atualizada: "

@@ -4,10 +4,10 @@ import com.projetointegrador.seumentor.tutoring.api.TutoringCommand;
 import com.projetointegrador.seumentor.tutoring.api.TutoringQuery;
 import com.projetointegrador.seumentor.tutoring.api.dto.UpdateAvailabilityStatusRequest;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
-import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRequest; // Certifique-se que este é o DTO correto para adicionar
+import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRequest; 
 import com.projetointegrador.seumentor.tutoring.exception.AvailabilityNotFoundException;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringOperationException;
-import com.projetointegrador.seumentor.user.exception.UserNotFoundException; // Pode ser necessário para tratar exceções do TutoringCommand
+import com.projetointegrador.seumentor.user.exception.UserNotFoundException; 
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -61,7 +61,6 @@ public class AvailabilityController {
             @PathVariable Long mentorId) {
         log.info("Controller: Request to get availabilities for mentor ID: {} (Authorized)", mentorId);
         try {
-            // Nota: O UserQuery.findAvailabilitiesRepresentationByUserId foi movido/adaptado para TutoringQuery
             List<UserAvailabilityRepresentation> availabilities = tutoringQueryService.findMentorAvailabilitiesByMentorId(mentorId);
             return ResponseEntity.ok(availabilities);
         } catch (UserNotFoundException e) {

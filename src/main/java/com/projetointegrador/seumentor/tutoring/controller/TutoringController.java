@@ -148,12 +148,8 @@ public class TutoringController {
             @Parameter(hidden = true) Authentication authentication) {
         log.info("Received request for available tutorings for user ID: {} in discipline ID: {} on date: {}",
                 userId, disciplineId, date);
-
-        // Validação da data: não pode ser no passado
         if (date.isBefore(LocalDate.now())) {
             log.warn("Failed to get available tutorings for user {}: Date {} is in the past.", userId, date);
-            // Retorna uma lista vazia ou um erro 400, dependendo da preferência.
-            // Aqui, optamos por um 400 Bad Request.
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data da consulta não pode ser no passado.");
         }
 
@@ -207,41 +203,46 @@ public class TutoringController {
         }
     }
 
-@PostMapping("/{tutoringId}/participants")
-@PreAuthorize("isAuthenticated()")
-@Operation(summary = "Adiciona o usuário autenticado como participante a uma mentoria", description = "Inscreve o usuário autenticado como participante em uma mentoria agendada. Requer autenticação. Admins também podem usar este endpoint para adicionar qualquer usuário.")
-@ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Participante adicionado com sucesso", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
-        @ApiResponse(responseCode = "400", description = "Operação inválida (ex: mentoria não está no status correto, mentoria lotada, usuário já participa)", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Mentoria ou Usuário (do payload) não encontrado(a)", content = @Content),
-        @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Acesso negado (usuário autenticado não tem permissão para adicionar o userId do payload, ou outras regras de negócio)", content = @Content),
-        @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
-})
-public ResponseEntity<TutoringRepresentation> addParticipant(
-        @Parameter(description = "ID da mentoria à qual adicionar o participante", required = true, in = ParameterIn.PATH) @PathVariable Long tutoringId,
-        @RequestBody(description = "ID do usuário a ser adicionado (deve ser o ID do usuário autenticado, a menos que o requisitante seja ADMIN) e o tópico de interesse", required = true, content = @Content(schema = @Schema(implementation = AddParticipantRequest.class)))
-        @Valid @org.springframework.web.bind.annotation.RequestBody AddParticipantRequest request,
-        @Parameter(hidden = true) Authentication authentication) {
-    log.info("Received request to add participant with userId {} (from request body) to tutoring ID: {}. Authenticated user: {}", request.userId(), tutoringId, authentication.getName());
-    try {
-        TutoringRepresentation response = tutoringCommandService.addParticipant(tutoringId, request, authentication);
-        return ResponseEntity.ok(response);
-    } catch (TutoringNotFoundException | UserNotFoundException e) {
-        log.warn("Add participant failed for tutoring ID {} (participant userId in request: {}): {}", tutoringId, request.userId(), e.getMessage());
-        throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
-    } catch (TutoringOperationException e) {
-        log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-    } catch (AccessDeniedException e) { // Será lançada pelo serviço se a autorização falhar
-        log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage(), e);
-    } catch (Exception e) {
-        log.error("Error adding participant (userId in request: {}) to tutoring ID {}: {}", request.userId(), tutoringId, e.getMessage(), e);
-        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Erro interno ao adicionar participante.", e);
+    @PostMapping("/{tutoringId}/participants")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Adiciona o usuário autenticado como participante a uma mentoria", description = "Inscreve o usuário autenticado como participante em uma mentoria agendada. Requer autenticação. Admins também podem usar este endpoint para adicionar qualquer usuário.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Participante adicionado com sucesso", content = @Content(mediaType = "application/json", schema = @Schema(implementation = TutoringRepresentation.class))),
+            @ApiResponse(responseCode = "400", description = "Operação inválida (ex: mentoria não está no status correto, mentoria lotada, usuário já participa)", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Mentoria ou Usuário (do payload) não encontrado(a)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário autenticado não tem permissão para adicionar o userId do payload, ou outras regras de negócio)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<TutoringRepresentation> addParticipant(
+            @Parameter(description = "ID da mentoria à qual adicionar o participante", required = true, in = ParameterIn.PATH) @PathVariable Long tutoringId,
+            @RequestBody(description = "ID do usuário a ser adicionado (deve ser o ID do usuário autenticado, a menos que o requisitante seja ADMIN) e o tópico de interesse", required = true, content = @Content(schema = @Schema(implementation = AddParticipantRequest.class))) @Valid @org.springframework.web.bind.annotation.RequestBody AddParticipantRequest request,
+            @Parameter(hidden = true) Authentication authentication) {
+        log.info(
+                "Received request to add participant with userId {} (from request body) to tutoring ID: {}. Authenticated user: {}",
+                request.userId(), tutoringId, authentication.getName());
+        try {
+            TutoringRepresentation response = tutoringCommandService.addParticipant(tutoringId, request,
+                    authentication);
+            return ResponseEntity.ok(response);
+        } catch (TutoringNotFoundException | UserNotFoundException e) {
+            log.warn("Add participant failed for tutoring ID {} (participant userId in request: {}): {}", tutoringId,
+                    request.userId(), e.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+        } catch (TutoringOperationException e) {
+            log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        } catch (AccessDeniedException e) { // Será lançada pelo serviço se a autorização falhar
+            log.warn("Add participant failed for tutoring ID {}: {}", tutoringId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error adding participant (userId in request: {}) to tutoring ID {}: {}", request.userId(),
+                    tutoringId, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Erro interno ao adicionar participante.", e);
+        }
     }
-}
+
     @PostMapping("/{tutoringId}/ratings")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Adiciona uma avaliação a uma mentoria concluída", description = "Permite que um participante avalie uma mentoria após sua conclusão. Requer autenticação.")
