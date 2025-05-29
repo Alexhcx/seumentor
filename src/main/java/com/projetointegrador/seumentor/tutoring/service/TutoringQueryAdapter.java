@@ -7,6 +7,7 @@ import com.projetointegrador.seumentor.tutoring.api.UserAvailabilityFinder;
 import com.projetointegrador.seumentor.tutoring.api.dto.*;
 import com.projetointegrador.seumentor.tutoring.api.mapper.TutoringMapper;
 import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
+import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
 import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
 import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 import com.projetointegrador.seumentor.tutoring.model.TutoringParticipants;
@@ -212,6 +213,110 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
         }
 
         @Override
+        @Transactional(readOnly = true)
+        public List<TutoringRatingRepresentation> findRatingsByTutoringId(Long tutoringId) {
+                log.debug("TutoringQueryAdapter: Finding ratings for tutoring ID: {}", tutoringId);
+
+                Tutoring tutoring = tutoringRepository.findById(tutoringId)
+                                .orElseThrow(() -> {
+                                        log.warn("TutoringQueryAdapter: Tutoring not found with ID: {} when trying to find ratings.",
+                                                        tutoringId);
+                                        return new TutoringNotFoundException(
+                                                        "Mentoria não encontrada com ID: " + tutoringId);
+                                });
+
+                TutoringRating rating = tutoring.getRating();
+
+                if (rating == null) {
+                        log.debug("TutoringQueryAdapter: No rating found for tutoring ID: {}", tutoringId);
+                        return Collections.emptyList();
+                }
+
+                Long raterUserId = null;
+                if (rating.getTutoring() != null && rating.getTutoring().getTopics() != null
+                                && !rating.getTutoring().getTopics().isEmpty()) {
+                        User mentor = rating.getTutoring().getMentor();
+
+                        raterUserId = rating.getTutoring().getTopics().stream()
+                                        .map(TutoringParticipants::getUser)
+                                        .filter(Objects::nonNull)
+                                        .filter(user -> mentor == null
+                                                        || (user.getId() != null && (mentor.getId() == null
+                                                                        || !user.getId().equals(mentor.getId()))))
+                                        .map(User::getId)
+                                        .findFirst()
+                                        .orElse(null);
+                        if (raterUserId == null && rating.getTutoring().getTopics().stream()
+                                        .anyMatch(tp -> tp.getUser() != null)) {
+                                log.warn("Could not definitively determine a non-mentor rater for tutoring ID {}, rating ID {}. "
+                                                +
+                                                "This might happen if only the mentor is listed in topics, or data inconsistency.",
+                                                tutoringId, rating.getId());
+                        }
+                } else {
+                        log.warn("Tutoring (ID: {}) or its topics are null/empty when trying to determine rater for rating (ID: {}).",
+                                        (rating.getTutoring() != null ? rating.getTutoring().getId() : "N/A"),
+                                        rating.getId());
+                }
+
+                TutoringRatingRepresentation representation = tutoringMapper.toTutoringRatingRepresentation(rating,
+                                raterUserId);
+                log.debug("TutoringQueryAdapter: Found and mapped rating for tutoring ID: {}", tutoringId);
+                return Collections.singletonList(representation);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public Optional<MentorAverageRatingRepresentation> getMentorAverageRating(Long mentorId) {
+                log.debug("TutoringQueryAdapter: Calculating average rating for mentor ID: {}", mentorId);
+
+                userQuery.findById(mentorId)
+                                .orElseThrow(() -> {
+                                        log.warn("TutoringQueryAdapter: Mentor not found with ID: {} when calculating average rating.",
+                                                        mentorId);
+                                        return new UserNotFoundException("Mentor não encontrado com ID: " + mentorId);
+                                });
+
+                // Idealmente, verificar se o usuário tem a role MENTOR, mas para a média,
+                // apenas a existência pode ser suficiente
+                // se a lógica de criação de tutorias/avaliações já garante que apenas mentores
+                // recebem avaliações.
+
+                Specification<Tutoring> spec = TutoringSpecifications.buildSpecification(mentorId, null, null);
+                List<Tutoring> mentorTutorings = tutoringRepository.findAll(spec);
+
+                if (mentorTutorings.isEmpty()) {
+                        log.debug("TutoringQueryAdapter: No tutorings found for mentor ID: {}. Returning 0 ratings.",
+                                        mentorId);
+                        return Optional.of(new MentorAverageRatingRepresentation(mentorId, null, 0));
+                }
+
+                List<Float> ratings = mentorTutorings.stream()
+                                .map(Tutoring::getRating) 
+                                .filter(Objects::nonNull) 
+                                .map(TutoringRating::getMentorRating) 
+                                .filter(Objects::nonNull) 
+                                .collect(Collectors.toList());
+
+                if (ratings.isEmpty()) {
+                        log.debug("TutoringQueryAdapter: No actual ratings found for mentor ID: {}'s tutorias.",
+                                        mentorId);
+                        return Optional.of(new MentorAverageRatingRepresentation(mentorId, null, 0));
+                }
+
+                double sum = ratings.stream()
+                                .mapToDouble(Float::doubleValue) 
+                                .sum();
+                double average = sum / ratings.size();
+
+                average = Math.round(average * 100.0) / 100.0;
+
+                log.info("TutoringQueryAdapter: Calculated average rating {} for mentor ID {} based on {} ratings.",
+                                average, mentorId, ratings.size());
+                return Optional.of(new MentorAverageRatingRepresentation(mentorId, average, ratings.size()));
+        }
+
+        @Override
         public TutoringRatingRepresentation mapToRatingRepresentation(TutoringRating rating, Long raterUserId) {
                 return tutoringMapper.toTutoringRatingRepresentation(rating, raterUserId);
         }
@@ -254,8 +359,8 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                 log.info("NOVA LÓGICA: Buscando slots para User ID: {} em Data: {}, Disciplina ID: {}",
                                 requestingUserId, date, disciplineId.orElse(null));
 
-                LocalDate currentDate = LocalDate.now(); // Data atual
-                LocalTime currentTime = LocalTime.now(); // Hora atual
+                LocalDate currentDate = LocalDate.now();
+                LocalTime currentTime = LocalTime.now();
 
                 // 1. Buscar TODAS as mentorias concretas (PENDENTE ou AGENDADA) para o slot
                 Specification<Tutoring> specConcreteForAllMentors = (root, query, cb) -> {

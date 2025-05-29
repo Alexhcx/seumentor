@@ -491,10 +491,24 @@ public class TutoringCommandService implements TutoringCommand {
                 if (isAdmin) {
                         log.info("Admin {} is updating status for tutoring ID {} from {} to {}", requestingUserEmail,
                                         tutoringId, currentStatus, newStatus);
+                        // Admin can bypass some strict mentor transitions, but basic flow should be
+                        // respected if possible.
+                        // For now, we'll allow admin to make any transition listed in
+                        // MENTOR_ALLOWED_TRANSITIONS for simplicity,
+                        // but in a real scenario, admins might have even fewer restrictions or a
+                        // separate transition map.
                         Set<StatusTutoring> allowedTransitionsForCurrentStatus = MENTOR_ALLOWED_TRANSITIONS
-                                        .getOrDefault(currentStatus, Set.of());
-                        if (!allowedTransitionsForCurrentStatus.contains(newStatus)) {
-                                log.warn("Admin {} attempted an invalid status transition for tutoring ID {} from {} to {}.",
+                                        .getOrDefault(currentStatus,
+                                                        Set.of(StatusTutoring.CANCELADA, StatusTutoring.CONCLUIDA)); // Admins
+                                                                                                                     // can
+                                                                                                                     // usually
+                                                                                                                     // cancel/complete
+                        if (!allowedTransitionsForCurrentStatus.contains(newStatus)
+                                        && newStatus != StatusTutoring.CANCELADA
+                                        && newStatus != StatusTutoring.CONCLUIDA) {
+                                // Allow admin to cancel or complete from almost any state if not a standard
+                                // mentor transition
+                                log.warn("Admin {} attempted an unusual status transition for tutoring ID {} from {} to {}. This might be allowed due to admin privileges.",
                                                 requestingUserEmail, tutoringId, currentStatus, newStatus);
                         }
                 } else if (isMentorOfTutoring) {
@@ -524,12 +538,14 @@ public class TutoringCommandService implements TutoringCommand {
                                                                                         TutoringMapper.DATE_FORMATTER)
                                                                         + ").");
                                 }
-                                if (currentTime.isBefore(tutoring.getStartTime())) {
+                                // MODIFICATION: Allow starting 5 minutes before
+                                if (currentTime.isBefore(tutoring.getStartTime().minusMinutes(5))) {
                                         throw new TutoringOperationException(
-                                                        "A mentoria ainda não começou. Início programado para "
+                                                        "A mentoria pode ser iniciada a partir de 5 minutos antes do horário agendado ("
                                                                         + tutoring.getStartTime().format(
                                                                                         TutoringMapper.TIME_FORMATTER)
-                                                                        + ".");
+                                                                        + "). Horário atual: " + currentTime.format(
+                                                                                        TutoringMapper.TIME_FORMATTER));
                                 }
                                 if (currentTime.isAfter(tutoring.getEndTime())) {
                                         throw new TutoringOperationException("O horário da mentoria já terminou ("
@@ -549,18 +565,23 @@ public class TutoringCommandService implements TutoringCommand {
                                 }
 
                                 if (!tutoring.getTutoringDate().equals(currentDate)) {
+                                        // TODO: Verificar a logica de uma mentoria que começa a meia noite.
+                                        // This check might be too restrictive if a mentoring session spans midnight or
+                                        // admin needs to fix it later.
+                                        // For now, keeping as is based on original logic.
                                         throw new TutoringOperationException(
                                                         "A mentoria só pode ser concluída no dia agendado ("
                                                                         + tutoring.getTutoringDate().format(
                                                                                         TutoringMapper.DATE_FORMATTER)
                                                                         + ").");
                                 }
-                                if (currentTime.isBefore(tutoring.getEndTime())) {
+                                if (currentTime.isBefore(tutoring.getEndTime().minusMinutes(5))) {
                                         throw new TutoringOperationException(
-                                                        "A mentoria ainda não terminou. Término programado para "
+                                                        "A mentoria pode ser concluída a partir de 5 minutos antes do horário de término agendado ("
                                                                         + tutoring.getEndTime().format(
                                                                                         TutoringMapper.TIME_FORMATTER)
-                                                                        + ".");
+                                                                        + "). Horário atual: " + currentTime.format(
+                                                                                        TutoringMapper.TIME_FORMATTER));
                                 }
                         }
 

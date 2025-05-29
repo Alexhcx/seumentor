@@ -88,24 +88,60 @@ public class TutoringController {
         return ResponseEntity.ok(tutorings);
     }
 
-    @GetMapping("/ratings")
-    @PreAuthorize("hasAuthority('ADMIN')")
-    @Operation(summary = "Lista todas as avaliações de mentorias (ADMIN)", description = "Retorna uma lista de todas as avaliações registradas. Requer permissão de ADMIN.")
+    @GetMapping("/{tutoringId}/ratings")
+    @PreAuthorize("hasAuthority('ADMIN') or @tutoringSecurityService.isMentorOfTutoring(authentication, #tutoringId)")
+    @Operation(summary = "Lista a avaliação de uma mentoria específica", description = "Retorna a avaliação (se existir) para a mentoria especificada. Requer permissão de ADMIN ou ser o mentor da mentoria.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de avaliações retornada com sucesso", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = TutoringRatingRepresentation.class)))),
+            @ApiResponse(responseCode = "200", description = "Avaliação(ões) da mentoria retornada(s) com sucesso. A lista conterá 0 ou 1 avaliação.", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = TutoringRatingRepresentation.class)))),
             @ApiResponse(responseCode = "401", description = "Não autorizado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado (usuário não é ADMIN)", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Mentoria não encontrada", content = @Content),
             @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
     })
-    public ResponseEntity<List<TutoringRatingRepresentation>> getAllTutoringRatings() {
-        log.info("Received request to get all tutoring ratings (ADMIN)");
+    public ResponseEntity<List<TutoringRatingRepresentation>> getTutoringRatings(
+            @Parameter(description = "ID da mentoria para buscar a avaliação", required = true) @PathVariable Long tutoringId) {
+        log.info("Received request to get ratings for tutoring ID: {} (ADMIN or Mentor)", tutoringId);
         try {
-            List<TutoringRatingRepresentation> ratings = tutoringQueryService.findAllTutoringRatings();
+            List<TutoringRatingRepresentation> ratings = tutoringQueryService.findRatingsByTutoringId(tutoringId);
             return ResponseEntity.ok(ratings);
+        } catch (TutoringNotFoundException e) {
+            log.warn("Get ratings failed: Tutoring not found for ID {}: {}", tutoringId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
         } catch (Exception e) {
-            log.error("Error retrieving all tutoring ratings: {}", e.getMessage(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno ao buscar avaliações.",
-                    e);
+            log.error("Error retrieving ratings for tutoring ID {}: {}", tutoringId, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Erro interno ao buscar avaliações da mentoria.", e);
+        }
+    }
+
+    @GetMapping("/mentors/{mentorId}/average-rating")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Busca a média de avaliações de um mentor", description = "Retorna a média das notas de todas as avaliações recebidas por um mentor específico, "
+            +
+            "juntamente com o número total de avaliações consideradas.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Média de avaliações retornada com sucesso", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MentorAverageRatingRepresentation.class))),
+            @ApiResponse(responseCode = "404", description = "Mentor não encontrado", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Não autorizado (usuário não autenticado)", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
+    })
+    public ResponseEntity<MentorAverageRatingRepresentation> getMentorAverageRating(
+            @Parameter(description = "ID do mentor para o qual a média de avaliações será calculada", required = true) @PathVariable Long mentorId) {
+        log.info("Received request to get average rating for mentor ID: {}", mentorId);
+        try {
+            MentorAverageRatingRepresentation avgRating = tutoringQueryService.getMentorAverageRating(mentorId)
+                    .orElseThrow(() -> {
+                        log.warn("Average rating request failed: Mentor not found for ID {}", mentorId);
+                        return new UserNotFoundException("Mentor não encontrado com ID: " + mentorId);
+                    });
+            return ResponseEntity.ok(avgRating);
+        } catch (UserNotFoundException e) {
+            log.warn("Get average rating failed: Mentor not found for ID {}: {}", mentorId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error retrieving average rating for mentor ID {}: {}", mentorId, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Erro interno ao buscar a média de avaliações do mentor.", e);
         }
     }
 

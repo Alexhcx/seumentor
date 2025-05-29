@@ -1,6 +1,7 @@
 package com.projetointegrador.seumentor.tutoring.api;
 
 import com.projetointegrador.seumentor.common.enums.DayWeek;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorAverageRatingRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.MentorProfileRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringParticipationRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRatingRepresentation;
@@ -62,4 +63,10 @@ public interface TutoringQuery {
 
     @Transactional(readOnly = true)
     List<TutoringParticipationRepresentation> getUserParticipationSessions(Long userId);
+
+    @Transactional(readOnly = true)
+    List<TutoringRatingRepresentation> findRatingsByTutoringId(Long tutoringId);
+
+    @Transactional(readOnly = true)
+    Optional<MentorAverageRatingRepresentation> getMentorAverageRating(Long mentorId);
 }
