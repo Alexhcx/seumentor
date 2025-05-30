@@ -42,7 +42,7 @@ public class ChatController {
   private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
   @GetMapping("/tutoring/{tutoringId}/history")
-  @PreAuthorize("hasAuthority('ADMIN') or @tutoringSecurityService.isUserParticipantOrMentor(authentication, #tutoringId)")
+  @PreAuthorize("hasAuthority('ADMIN') or @tutoringSecurityService.isUserParticipantOrMentorOrAdmin(authentication, #tutoringId)")
   @Operation(summary = "Busca o histórico de mensagens de uma mentoria", description = "Retorna todas as mensagens de uma mentoria específica. Requer autenticação e que o usuário seja participante ou mentor da mentoria, ou ADMIN.")
   @ApiResponses(value = {
       @ApiResponse(responseCode = "200", description = "Histórico de mensagens retornado com sucesso", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = ChatOutputDTO.class)))),
@@ -62,7 +62,7 @@ public class ChatController {
 
       List<ChatOutputDTO> history = chatService.getChatHistory(tutoringId);
       return ResponseEntity.ok(history);
-    } catch (TutoringNotFoundException e) { // Supondo que ChatService pode lançar TutoringNotFoundException
+    } catch (TutoringNotFoundException e) {
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage(), e);
     } catch (AccessDeniedException e) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, e.getMessage(), e);

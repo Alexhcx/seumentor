@@ -89,7 +89,7 @@ public class TutoringController {
     }
 
     @GetMapping("/{tutoringId}/ratings")
-    @PreAuthorize("hasAuthority('ADMIN') or @tutoringSecurityService.isMentorOfTutoring(authentication, #tutoringId)")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Lista a avaliação de uma mentoria específica", description = "Retorna a avaliação (se existir) para a mentoria especificada. Requer permissão de ADMIN ou ser o mentor da mentoria.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Avaliação(ões) da mentoria retornada(s) com sucesso. A lista conterá 0 ou 1 avaliação.", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = TutoringRatingRepresentation.class)))),
