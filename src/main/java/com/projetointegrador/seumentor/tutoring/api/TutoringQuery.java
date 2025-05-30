@@ -9,6 +9,7 @@ import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.tutoring.api.dto.UserAvailabilityRepresentation;
 import com.projetointegrador.seumentor.tutoring.enums.StatusTutoring;
 import com.projetointegrador.seumentor.tutoring.model.MentorAvailability;
+import com.projetointegrador.seumentor.tutoring.model.Tutoring;
 import com.projetointegrador.seumentor.tutoring.model.TutoringRating;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,9 @@ public interface TutoringQuery {
     Optional<TutoringRepresentation> findTutoringById(Long tutoringId);
 
     List<TutoringRepresentation> findFilteredTutorings(Long mentorId, Long disciplineId, StatusTutoring status);
+
+    @Transactional
+    Tutoring getTutoringReferenceById(Long tutoringId);
 
     @Transactional(readOnly = true)
     List<TutoringRepresentation> findAllTutoringsByMentorId(Long mentorId);
@@ -40,8 +44,7 @@ public interface TutoringQuery {
     List<TutoringRepresentation> findAvailableSlotsForUser(
             LocalDate date,
             Optional<Long> disciplineId,
-            Long requestingUserId
-    );
+            Long requestingUserId);
 
     @Transactional(readOnly = true)
     Optional<UserAvailabilityRepresentation> findMentorAvailabilityRepresentationById(Long availabilityId);

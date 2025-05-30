@@ -77,7 +77,7 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                                         rep.id(), rep.mentorId(), rep.mentorName(), rep.disciplineId(),
                                         rep.disciplineName(),
                                         rep.tutoringClassType(), rep.status(), rep.startTime(), rep.endTime(),
-                                        rep.tutoringDate(),
+                                        rep.tutoringDate(), rep.isMentorPostingOnly(),
                                         rep.local(), rep.linkVideo(), rep.maxParticipants(), qtdParticipants,
                                         rep.isChatEnable(), rep.participants());
                 }
@@ -292,10 +292,10 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                 }
 
                 List<Float> ratings = mentorTutorings.stream()
-                                .map(Tutoring::getRating) 
-                                .filter(Objects::nonNull) 
-                                .map(TutoringRating::getMentorRating) 
-                                .filter(Objects::nonNull) 
+                                .map(Tutoring::getRating)
+                                .filter(Objects::nonNull)
+                                .map(TutoringRating::getMentorRating)
+                                .filter(Objects::nonNull)
                                 .collect(Collectors.toList());
 
                 if (ratings.isEmpty()) {
@@ -305,7 +305,7 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                 }
 
                 double sum = ratings.stream()
-                                .mapToDouble(Float::doubleValue) 
+                                .mapToDouble(Float::doubleValue)
                                 .sum();
                 double average = sum / ratings.size();
 
@@ -495,7 +495,17 @@ public class TutoringQueryAdapter implements TutoringQuery, UserAvailabilityFind
                 return resultSlots;
         }
 
-        // --- Métodos de consulta de disponibilidade movidos/implementados aqui ---
+        @Override
+        @Transactional
+        public Tutoring getTutoringReferenceById(Long tutoringId) {
+                log.debug("Adapter: Getting tutoring reference by ID: {}", tutoringId);
+                if (!tutoringRepository.existsById(tutoringId)) { // tutoringRepository é o JpaRepository
+                        log.warn("Adapter: Tutoring reference requested for non-existent ID: {}", tutoringId);
+                        throw new TutoringNotFoundException("Mentoria não encontrada com ID: " + tutoringId);
+                }
+                return tutoringRepository.getReferenceById(tutoringId);
+        }
+
         @Override
         @Transactional(readOnly = true)
         public Optional<UserAvailabilityRepresentation> findMentorAvailabilityRepresentationById(Long availabilityId) {

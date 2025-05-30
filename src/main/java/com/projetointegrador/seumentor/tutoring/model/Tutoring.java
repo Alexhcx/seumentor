@@ -60,6 +60,10 @@ public class Tutoring extends BaseEntity implements Serializable {
   @Builder.Default
   private Boolean isChatEnable = false;
 
+  @Column(nullable = false, columnDefinition = "boolean default false")
+  @Builder.Default
+  private Boolean isMentorPostingOnly = false;
+
   @OneToOne(mappedBy = "tutoring", cascade = CascadeType.ALL, orphanRemoval = true)
   @ToString.Exclude
   @EqualsAndHashCode.Exclude
@@ -72,17 +76,26 @@ public class Tutoring extends BaseEntity implements Serializable {
 
   @Override
   public final boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-    Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-    if (thisEffectiveClass != oEffectiveClass) return false;
+    if (this == o)
+      return true;
+    if (o == null)
+      return false;
+    Class<?> oEffectiveClass = o instanceof HibernateProxy
+        ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+        : o.getClass();
+    Class<?> thisEffectiveClass = this instanceof HibernateProxy
+        ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+        : this.getClass();
+    if (thisEffectiveClass != oEffectiveClass)
+      return false;
     Tutoring tutoring = (Tutoring) o;
     return getId() != null && Objects.equals(getId(), tutoring.getId());
   }
 
   @Override
   public final int hashCode() {
-    return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    return this instanceof HibernateProxy
+        ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+        : getClass().hashCode();
   }
 }

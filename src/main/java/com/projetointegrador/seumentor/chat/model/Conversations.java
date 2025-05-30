@@ -1,7 +1,9 @@
 package com.projetointegrador.seumentor.chat.model;
 
+import com.projetointegrador.seumentor.chat.enums.MessageType;
 import com.projetointegrador.seumentor.common.model.BaseEntity;
 import com.projetointegrador.seumentor.user.model.User;
+import com.projetointegrador.seumentor.tutoring.model.Tutoring; // Import Tutoring
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -30,11 +32,21 @@ public class Conversations extends BaseEntity implements Serializable {
   private User sender;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "receiver_id", nullable = false)
+  @JoinColumn(name = "receiver_id") 
   @ToString.Exclude
   private User receiver;
 
+  @Column(columnDefinition = "TEXT") 
   private String chatMessage;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "tutoring_id") 
+  @ToString.Exclude
+  private Tutoring tutoring;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private MessageType messageType; 
 
   @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
   @Builder.Default

@@ -29,6 +29,8 @@ public record TutoringRepresentation(
 
                 @Schema(description = "Data da mentoria (dd/MM/yyyy)", type = "string", example = "03/12/2007") String tutoringDate,
 
+                @Schema(description = "Define se só o mentor pode mandar mensagem", type = "boolean", example = "true") Boolean isMentorPostingOnly,
+
                 @Schema(description = "Local da mentoria (para tipo PRESENCIAL)", example = "Sala C101") String local,
 
                 @Schema(description = "Link da sala virtual (para tipo ONLINE)", example = "https://meet.example.com/xyz-uvw-rst") String linkVideo,

@@ -18,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 
 import java.util.Arrays;
 
-
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -27,8 +26,7 @@ public class SecurityConfiguration {
         private final JwtAuthenticationFilter jwtAuthFilter;
         private final AuthenticationProvider authenticationProvider;
 
-
-        //TODO: Configuração dos https requests(Autorizações)
+        // TODO: Configuração dos https requests(Autorizações)
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 http
@@ -36,14 +34,22 @@ public class SecurityConfiguration {
                                 .cors(Customizer.withDefaults())
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
+                                                                "/buildrun-livechat-websocket",
+                                                                "/index.html",
+                                                                "/ws",
+                                                                "/app",
+                                                                "/new-message",
+                                                                "/topics/livechat",
+                                                                "/app.js", 
+                                                                "/main.css",
                                                                 "/api/v1/**",
-                                                        "/actuator/**",
-                                                        "/health/**",
-                                                        "/metrics/**",
-                                                        "/v3/api-docs/**",
-                                                        "/swagger-ui.html",
-                                                        "/swagger-ui/index.html",
-                                                        "/swagger-ui/**" )
+                                                                "/actuator/**",
+                                                                "/health/**",
+                                                                "/metrics/**",
+                                                                "/v3/api-docs/**",
+                                                                "/swagger-ui.html",
+                                                                "/swagger-ui/index.html",
+                                                                "/swagger-ui/**")
                                                 .permitAll()
                                                 .anyRequest().authenticated())
                                 .sessionManagement(session -> session
@@ -57,7 +63,8 @@ public class SecurityConfiguration {
         @Bean
         CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
-                configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:8081", "http://localhost:3000"));
+                configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:8081",
+                                "http://localhost:3000"));
                 configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
                 configuration.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type"));
                 configuration.setAllowCredentials(true);
