@@ -3,6 +3,7 @@ package com.projetointegrador.seumentor.user.api;
 import java.util.List;
 import java.util.Optional;
 
+import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
 import com.projetointegrador.seumentor.user.model.User; // Necessário para getUserReferenceById
 import org.springframework.transaction.annotation.Transactional;
