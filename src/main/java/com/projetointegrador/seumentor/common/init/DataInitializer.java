@@ -531,7 +531,7 @@ public class DataInitializer implements CommandLineRunner {
                                                 .cpf(CPFUtils.removerFormatacao(data[8]))
                                                 .phone(data[9].replaceAll("[^0-9]", ""))
                                                 .password(passwordEncoder
-                                                                .encode("Pass@word" + String.format("%02d", sqlId - 1)))
+                                                                .encode("Password00"))
                                                 .role(Role.valueOf(data[11]))
                                                 .birthday(data[1])
                                                 .city(data[2])
@@ -739,7 +739,7 @@ public class DataInitializer implements CommandLineRunner {
                                                 .cpf(CPFUtils.removerFormatacao(data[8]))
                                                 .phone(data[9].replaceAll("[^0-9]", ""))
                                                 .password(passwordEncoder
-                                                                .encode("Pass@word" + String.format("%02d", sqlId - 1)))
+                                                                .encode("Password00"))
                                                 .role(Role.valueOf(data[11]))
                                                 .birthday(data[1])
                                                 .city(data[2])
