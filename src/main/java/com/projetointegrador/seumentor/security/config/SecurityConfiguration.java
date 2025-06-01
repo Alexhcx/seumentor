@@ -33,14 +33,16 @@ public class SecurityConfiguration {
                                 .csrf(AbstractHttpConfigurer::disable)
                                 .cors(Customizer.withDefaults())
                                 .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers(
+                                                .requestMatchers(//TODO: Não esquecer de configurar todos os endpoints
+                                                                "/file/upload",
+                                                                "/file/profile-image/{userId}", 
                                                                 "/buildrun-livechat-websocket",
                                                                 "/index.html",
                                                                 "/ws",
                                                                 "/app",
                                                                 "/new-message",
                                                                 "/topics/livechat",
-                                                                "/app.js", 
+                                                                "/app.js",
                                                                 "/main.css",
                                                                 "/api/v1/**",
                                                                 "/actuator/**",

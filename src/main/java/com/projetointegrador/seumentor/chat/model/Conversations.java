@@ -36,7 +36,7 @@ public class Conversations extends BaseEntity implements Serializable {
   @ToString.Exclude
   private User receiver;
 
-  @Column(columnDefinition = "TEXT") 
+  @Column(columnDefinition = "TEXT", length = 500) 
   private String chatMessage;
 
   @ManyToOne(fetch = FetchType.LAZY)

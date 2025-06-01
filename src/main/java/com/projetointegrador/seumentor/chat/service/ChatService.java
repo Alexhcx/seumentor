@@ -118,7 +118,7 @@ public class ChatService {
     }
 
     public String getDestinationTopic(Long tutoringId, MessageType type, Long senderId, Long receiverId) {
-        if (type == MessageType.GENERAL) {
+        if (type == MessageType.GENERAL|| type == MessageType.FILE) {
             return "/topic/tutoring/" + tutoringId + "/general";
         } else if (type == MessageType.PRIVATE && receiverId != null) {
             Long userAId = Math.min(senderId, receiverId);

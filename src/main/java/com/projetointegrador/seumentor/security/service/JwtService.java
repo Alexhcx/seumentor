@@ -8,6 +8,7 @@ import java.util.function.Function;
 
 import javax.crypto.SecretKey;
 
+import org.springframework.beans.factory.annotation.Value; // Importar @Value
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
@@ -21,8 +22,14 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
 
-  //TODO: Mover a secretkey para uma variavel de ambiente
-  private static final String SECRET_KEY = "c4b4d5a2e1f982b3c5d6b7f8a9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c";
+  private final String jwtSecretKeyString; 
+  private final SecretKey signingKey; 
+
+  public JwtService(@Value("${app.security.jwt.secret-key}") String jwtSecretKey) {
+    this.jwtSecretKeyString = jwtSecretKey;
+    byte[] keyBytes = Decoders.BASE64.decode(this.jwtSecretKeyString);
+    this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+  }
 
   public String extractUsername(String token) {
     return extractClaim(token, Claims::getSubject);
@@ -78,8 +85,6 @@ public class JwtService {
   }
 
   private SecretKey getSigninKey() {
-    byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
-    return Keys.hmacShaKeyFor(keyBytes);
+    return this.signingKey;
   }
-
 }
