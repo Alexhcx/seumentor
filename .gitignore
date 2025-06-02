@@ -6,6 +6,8 @@ target/
 .env.local
 config-local.properties
 cloudstorage.yaml
+expressions.txt
+git-filter-repo
 
 ### STS ###
 .apt_generated

@@ -1,4 +1,3 @@
-// Ex: src/main/java/com/projetointegrador/seumentor/notification/listener/UserEventListener.java
 package com.projetointegrador.seumentor.notification.listener;
 
 import org.slf4j.Logger;
@@ -9,6 +8,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import com.projetointegrador.seumentor.notification.service.EmailService;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipAcceptedEvent;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipCancelledEvent;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipCompletedEvent;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipStartingEvent;
 import com.projetointegrador.seumentor.user.api.events.PasswordResetRequestedEvent;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 
@@ -42,4 +45,81 @@ public class UserEventListener {
     }
   }
 
+  @EventListener
+  @Async
+  public void handleMentorshipAcceptedEvent(MentorshipAcceptedEvent event) {
+    log.info("Received MentorshipAcceptedEvent for mentee email: {}, tutoringId: {}", event.emailMentorado(),
+        event.tutoringId());
+    try {
+      emailService.enviarEmailMentoriaAceita(
+          event.emailMentorado(),
+          event.nomeMentorado(),
+          event.nomeMentor(),
+          event.nomeDisciplina());
+    } catch (Exception e) {
+      log.error("Failed to send mentorship accepted email for mentee email {}: {}", event.emailMentorado(),
+          e.getMessage(), e);
+    }
+  }
+
+  @EventListener
+  @Async
+  public void handleMentorshipStartingEvent(MentorshipStartingEvent event) {
+    log.info("Received MentorshipStartingEvent for mentee email: {}, tutoringId: {}", event.emailMentorado(),
+        event.tutoringId());
+    try {
+      emailService.enviarEmailMentoriaIniciando(
+          event.emailMentorado(),
+          event.nomeMentorado(),
+          event.nomeMentor(),
+          event.nomeDisciplina(),
+          event.horarioInicio(),
+          event.linkMentoria(),
+          event.localMentoria(),
+          event.tipoMentoria(),
+          event.tutoringId());
+    } catch (Exception e) {
+      log.error("Failed to send mentorship starting email for mentee email {}: {}", event.emailMentorado(),
+          e.getMessage(), e);
+    }
+  }
+
+  @EventListener
+  @Async
+  public void handleMentorshipCompletedEvent(MentorshipCompletedEvent event) {
+    log.info("Received MentorshipCompletedEvent for mentee email: {}, tutoringId: {}", event.emailMentorado(),
+        event.tutoringId());
+    try {
+      emailService.enviarEmailMentoriaConcluidaAvaliar(
+          event.emailMentorado(),
+          event.nomeMentorado(),
+          event.nomeMentor(),
+          event.nomeDisciplina(),
+          event.tutoringId(),
+          event.menteeId());
+    } catch (Exception e) {
+      log.error("Failed to send mentorship completed/rating request email for mentee email {}: {}",
+          event.emailMentorado(), e.getMessage(), e);
+    }
+  }
+
+  @EventListener
+  @Async
+  public void handleMentorshipCancelledEvent(MentorshipCancelledEvent event) {
+    log.info("Received MentorshipCancelledEvent for recipient email: {}, tutoringId: {}", event.emailDestinatario(),
+        event.tutoringId());
+    try {
+      emailService.enviarEmailMentoriaCancelada(
+          event.emailDestinatario(),
+          event.nomeDestinatario(),
+          event.nomeDisciplina(),
+          event.dataMentoria(),
+          event.horarioInicioMentoria(),
+          event.tutoringId(),
+          event.motivoAdicional());
+    } catch (Exception e) {
+      log.error("Failed to send mentorship cancelled email for recipient email {}: {}", event.emailDestinatario(),
+          e.getMessage(), e);
+    }
+  }
 }

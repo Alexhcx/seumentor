@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title th:text="|Mentoria Cancelada - ${nomeProjeto}|">Mentoria Cancelada</title>
+  <style type="text/css">
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    table { border-collapse: collapse !important; }
+    body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    a { color: #007bff; }
+    a:hover { color: #0056b3; }
+    .button-link { display: inline-block; padding: 12px 25px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #ffffff !important; background-color: #007bff; border-radius: 5px; text-decoration: none; text-align: center; }
+    .button-link:hover { background-color: #0056b3 !important; }
+    .alert-text { color: #dc3545; font-weight: bold; } /* Cor para texto de alerta/cancelamento */
+    @media screen and (max-width: 600px) { .content-table { width: 100% !important; max-width: 100% !important; } }
+  </style>
+</head>
+
+<body style="margin: 0 !important; padding: 0 !important; background-color: #f4f4f4;">
+
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+    <tr>
+      <td align="center" valign="top" style="padding: 20px 10px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" class="content-table" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px;">
+          <tr>
+            <td align="center" style="padding: 30px 20px 20px 20px;">
+              <h1 style="margin: 0; font-family: Arial, sans-serif; font-size: 28px; color: #333333;" th:text="${nomeProjeto}">Nome do Projeto</h1>
+            </td>
+          </tr>
+          <tr>
+            <td align="left" style="padding: 0px 30px 20px 30px; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #555555;">
+              <h2 style="margin: 0 0 15px 0; font-size: 22px; color: #333333;" th:text="|Olá, ${nomeDestinatario}!|">Olá!</h2>
+              <p style="margin: 0 0 15px 0;">
+                Lamentamos informar que a sua mentoria de <strong th:text="${nomeDisciplina}">Nome da Disciplina</strong>, que estava agendada para o dia <strong th:text="${dataMentoria}">Data</strong> às <strong th:text="${horarioInicioMentoria}">Horário</strong>, foi <strong class="alert-text">CANCELADA</strong>.
+              </p>
+              <p th:if="${motivoAdicional != null and !motivoAdicional.isEmpty()}" style="margin: 0 0 15px 0;" th:text="'Detalhes: ' + ${motivoAdicional}">
+                Detalhes adicionais sobre o cancelamento.
+              </p>
+              <p style="margin: 0 0 25px 0;">
+                Você pode verificar o status de suas outras mentorias ou buscar novas oportunidades em nossa plataforma.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 10px 30px 30px 30px;">
+              <table border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="center">
+                    <a th:href="${linkMinhasMentorias}" target="_blank" class="button-link">
+                      Ver Minhas Mentorias
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="left" style="padding: 0px 30px 20px 30px; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #555555;">
+              <p style="margin: 0 0 10px 0;">
+                Se precisar de ajuda ou tiver alguma dúvida, entre em contato conosco respondendo a este e-mail ou
+                visitando nossa
+                <a th:href="${linkAjuda}" target="_blank" style="color: #007bff; text-decoration: underline;">página de ajuda</a>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="left" style="padding: 0px 30px 30px 30px; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #555555;">
+              <p style="margin: 0;">Atenciosamente,</p>
+              <p style="margin: 5px 0 0 0;" th:text="|A Equipe ${nomeProjeto}|">A Equipe</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding: 20px 10px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="600" class="content-table" style="max-width: 600px;">
+          <tr>
+            <td align="center" style="padding: 10px 20px; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; color: #888888;">
+              <p style="margin: 0 0 5px 0;" th:text="|Você está recebendo este e-mail como uma notificação sobre suas atividades em ${nomeProjeto}.|">
+                Você está recebendo este e-mail como uma notificação.
+              </p>
+              <p style="margin: 0;" th:text="${nomeEmpresa} + ' | ' + ${enderecoEmpresa}">
+                Nome da Empresa | Endereço
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

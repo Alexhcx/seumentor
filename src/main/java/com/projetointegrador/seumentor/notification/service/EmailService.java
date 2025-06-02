@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import com.projetointegrador.seumentor.tutoring.model.TutoringClassType;
+
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
@@ -114,6 +116,176 @@ public class EmailService {
         } catch (Exception e) {
             System.err.println("Erro ao enviar email de boas-vindas para " + destinatario + ": " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    @Async
+    public void enviarEmailMentoriaAceita(String destinatario, String nomeUsuario, String nomeMentor,
+            String nomeDisciplina) {
+        log.info("Tentando enviar email de notificação de mentoria aceita para: {}", destinatario);
+        try {
+            Context context = new Context();
+            context.setVariable("nomeUsuario", nomeUsuario);
+            context.setVariable("nomeMentor", nomeMentor);
+            context.setVariable("nomeDisciplina", nomeDisciplina);
+            context.setVariable("nomeProjeto", this.nomeProjeto);
+            context.setVariable("linkProjeto", this.baseUrl + "/perfil");
+            context.setVariable("linkAjuda", this.baseUrl + this.pathAjuda);
+            context.setVariable("nomeEmpresa", this.nomeEmpresa);
+            context.setVariable("enderecoEmpresa", this.enderecoEmpresa);
+            // O link de cancelamento pode não ser relevante aqui, ou pode levar para
+            // configurações de notificação
+            context.setVariable("linkCancelamento", this.baseUrl + "/perfil");
+
+            String corpoHtml = templateEngine.process("mentoria-aceita", context); // Novo template
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
+
+            helper.setTo(destinatario);
+            helper.setSubject("Sua solicitação de mentoria foi aceita! - " + this.nomeProjeto);
+            helper.setText(corpoHtml, true);
+            helper.setFrom(this.emailFrom);
+
+            mailSender.send(mimeMessage);
+            log.info("Email de notificação de mentoria aceita enviado async para: {}", destinatario);
+
+        } catch (MessagingException e) {
+            log.error("Erro de MimeMessage ao enviar email de mentoria aceita para {}: {}", destinatario,
+                    e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Erro geral ao enviar email de mentoria aceita para {}: {}", destinatario, e.getMessage(), e);
+        }
+    }
+
+    @Async
+    public void enviarEmailMentoriaIniciando(String destinatario, String nomeUsuario, String nomeMentor,
+            String nomeDisciplina, String horarioInicio, String linkMentoria, String localMentoria,
+            TutoringClassType tipoMentoria, Long tutoringId) {
+        log.info("Tentando enviar email de notificação de mentoria iniciando para: {}, tutoringId: {}", destinatario,
+                tutoringId);
+        try {
+            Context context = new Context();
+            context.setVariable("nomeUsuario", nomeUsuario);
+            context.setVariable("nomeMentor", nomeMentor);
+            context.setVariable("nomeDisciplina", nomeDisciplina);
+            context.setVariable("horarioInicio", horarioInicio);
+            context.setVariable("linkMentoria", linkMentoria);
+            context.setVariable("localMentoria", localMentoria);
+            context.setVariable("isOnline", tipoMentoria == TutoringClassType.ONLINE);
+            context.setVariable("isPresencial", tipoMentoria == TutoringClassType.PRESENCIAL);
+
+            context.setVariable("nomeProjeto", this.nomeProjeto);
+            context.setVariable("linkDetalhesMentoria", this.baseUrl + "/perfil");
+            context.setVariable("linkAjuda", this.baseUrl + this.pathAjuda);
+            context.setVariable("nomeEmpresa", this.nomeEmpresa);
+            context.setVariable("enderecoEmpresa", this.enderecoEmpresa);
+
+            String corpoHtml = templateEngine.process("mentoria-iniciando", context);
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
+
+            helper.setTo(destinatario);
+            helper.setSubject("Sua mentoria de " + nomeDisciplina + " está começando! - " + this.nomeProjeto);
+            helper.setText(corpoHtml, true);
+            helper.setFrom(this.emailFrom);
+
+            mailSender.send(mimeMessage);
+            log.info("Email de notificação de mentoria iniciando enviado async para: {}, tutoringId: {}", destinatario,
+                    tutoringId);
+
+        } catch (MessagingException e) {
+            log.error("Erro de MimeMessage ao enviar email de mentoria iniciando para {} (tutoringId: {}): {}",
+                    destinatario, tutoringId, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Erro geral ao enviar email de mentoria iniciando para {} (tutoringId: {}): {}", destinatario,
+                    tutoringId, e.getMessage(), e);
+        }
+    }
+
+    @Async
+    public void enviarEmailMentoriaConcluidaAvaliar(String destinatario, String nomeUsuario, String nomeMentor,
+            String nomeDisciplina, Long tutoringId, Long menteeId) {
+        log.info("Tentando enviar email de mentoria concluída e solicitação de avaliação para: {}, tutoringId: {}",
+                destinatario, tutoringId);
+        try {
+            Context context = new Context();
+            context.setVariable("nomeUsuario", nomeUsuario);
+            context.setVariable("nomeMentor", nomeMentor);
+            context.setVariable("nomeDisciplina", nomeDisciplina);
+            context.setVariable("tutoringId", tutoringId); // Para construir o link no template
+
+            context.setVariable("nomeProjeto", this.nomeProjeto);
+            // Link para a página de avaliação da mentoria específica
+            // Ajuste este link conforme a rota da sua aplicação para avaliação
+            context.setVariable("linkAvaliarMentoria", this.baseUrl + "/perfil"); // Exemplo
+                                                                                  // de link
+            context.setVariable("linkAjuda", this.baseUrl + this.pathAjuda);
+            context.setVariable("nomeEmpresa", this.nomeEmpresa);
+            context.setVariable("enderecoEmpresa", this.enderecoEmpresa);
+
+            String corpoHtml = templateEngine.process("mentoria-concluida-avaliar", context); // Novo template
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
+
+            helper.setTo(destinatario);
+            helper.setSubject(
+                    "Mentoria de " + nomeDisciplina + " concluída! Avalie sua experiência - " + this.nomeProjeto);
+            helper.setText(corpoHtml, true);
+            helper.setFrom(this.emailFrom);
+
+            mailSender.send(mimeMessage);
+            log.info("Email de mentoria concluída e solicitação de avaliação enviado async para: {}, tutoringId: {}",
+                    destinatario, tutoringId);
+
+        } catch (MessagingException e) {
+            log.error("Erro de MimeMessage ao enviar email de mentoria concluída para {} (tutoringId: {}): {}",
+                    destinatario, tutoringId, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Erro geral ao enviar email de mentoria concluída para {} (tutoringId: {}): {}", destinatario,
+                    tutoringId, e.getMessage(), e);
+        }
+    }
+
+    @Async
+    public void enviarEmailMentoriaCancelada(String destinatario, String nomeDestinatario, String nomeDisciplina,
+            String dataMentoria, String horarioInicioMentoria, Long tutoringId, String motivoAdicional) {
+        log.info("Tentando enviar email de notificação de mentoria cancelada para: {}, tutoringId: {}", destinatario,
+                tutoringId);
+        try {
+            Context context = new Context();
+            context.setVariable("nomeDestinatario", nomeDestinatario);
+            context.setVariable("nomeDisciplina", nomeDisciplina);
+            context.setVariable("dataMentoria", dataMentoria);
+            context.setVariable("horarioInicioMentoria", horarioInicioMentoria);
+            context.setVariable("motivoAdicional", motivoAdicional); 
+
+            context.setVariable("nomeProjeto", this.nomeProjeto);
+            // Link para a página de mentorias do usuário
+            context.setVariable("linkMinhasMentorias", this.baseUrl + "/perfil"); 
+            context.setVariable("linkBuscarMentorias", this.baseUrl + "/discipline"); 
+            context.setVariable("linkAjuda", this.baseUrl + this.pathAjuda);
+            context.setVariable("nomeEmpresa", this.nomeEmpresa);
+            context.setVariable("enderecoEmpresa", this.enderecoEmpresa);
+
+            String corpoHtml = templateEngine.process("mentoria-cancelada", context); 
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
+
+            helper.setTo(destinatario);
+            helper.setSubject("Mentoria de " + nomeDisciplina + " Cancelada - " + this.nomeProjeto);
+            helper.setText(corpoHtml, true);
+            helper.setFrom(this.emailFrom);
+
+            mailSender.send(mimeMessage);
+            log.info("Email de notificação de mentoria cancelada enviado async para: {}, tutoringId: {}", destinatario,
+                    tutoringId);
+
+        } catch (MessagingException e) {
+            log.error("Erro de MimeMessage ao enviar email de mentoria cancelada para {} (tutoringId: {}): {}",
+                    destinatario, tutoringId, e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Erro geral ao enviar email de mentoria cancelada para {} (tutoringId: {}): {}", destinatario,
+                    tutoringId, e.getMessage(), e);
         }
     }
 }

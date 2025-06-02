@@ -25,6 +25,7 @@ import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import com.projetointegrador.seumentor.user.model.User;
 import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -55,6 +56,8 @@ public class TutoringCommandService implements TutoringCommand {
         private final TutoringRatingRepository tutoringRatingRepository;
         private final TutoringParticipantsRepository tutoringParticipantsRepository;
         private final MentorAvailabilityRepository mentorAvailabilityRepository;
+
+        private final ApplicationEventPublisher eventPublisher;
 
         private final UserQuery userQuery;
         private final DisciplineQuery disciplineQuery;
@@ -405,6 +408,8 @@ public class TutoringCommandService implements TutoringCommand {
                                         "Usuário não autorizado a confirmar ou atualizar esta monitoria.");
                 }
 
+                StatusTutoring previousStatus = tutoring.getStatus(); // Guarda o status anterior
+
                 if (tutoring.getStatus() != StatusTutoring.PENDENTE
                                 && tutoring.getStatus() != StatusTutoring.AGENDADA) {
                         log.warn("Confirm/Update tutoring failed: Tutoring ID {} is not in PENDENTE or AGENDADA status (current: {})",
@@ -447,8 +452,48 @@ public class TutoringCommandService implements TutoringCommand {
                 }
 
                 Tutoring updatedTutoring = tutoringRepository.save(tutoring);
-                // Re-fetch e enriquecer para garantir que qtdParticipants seja atualizado na
-                // representação
+
+                // Disparar o evento se o status mudou de PENDENTE para AGENDADA
+                if (previousStatus == StatusTutoring.PENDENTE
+                                && updatedTutoring.getStatus() == StatusTutoring.AGENDADA) {
+                        // Encontrar o primeiro participante (mentorado) para notificar
+                        // Assumindo que a lista de tópicos/participantes não está vazia e o primeiro é
+                        // o solicitante.
+                        // Em um cenário real, você pode querer notificar todos os participantes ou ter
+                        // uma lógica mais robusta para identificar o solicitante.
+                        Optional<TutoringParticipants> firstParticipantOpt = updatedTutoring.getTopics().stream()
+                                        .findFirst();
+
+                        if (firstParticipantOpt.isPresent()) {
+                                User mentorado = firstParticipantOpt.get().getUser();
+                                User mentor = updatedTutoring.getMentor();
+                                Discipline disciplina = updatedTutoring.getDiscipline();
+
+                                if (mentorado != null && mentor != null && disciplina != null) {
+                                        try {
+                                                MentorshipAcceptedEvent event = new MentorshipAcceptedEvent(
+                                                                mentorado.getEmail(),
+                                                                mentorado.getFirstName(),
+                                                                mentor.getFirstName() + " " + mentor.getLastName(),
+                                                                disciplina.getDisciplineName(),
+                                                                updatedTutoring.getId());
+                                                eventPublisher.publishEvent(event);
+                                                log.info("MentorshipAcceptedEvent published for tutoring ID: {} for mentee: {}",
+                                                                updatedTutoring.getId(), mentorado.getEmail());
+                                        } catch (Exception e) {
+                                                log.error("Failed to publish MentorshipAcceptedEvent for tutoring ID {}: {}",
+                                                                updatedTutoring.getId(), e.getMessage(), e);
+                                        }
+                                } else {
+                                        log.warn("Could not publish MentorshipAcceptedEvent for tutoring ID {} due to missing mentee, mentor, or discipline info.",
+                                                        updatedTutoring.getId());
+                                }
+                        } else {
+                                log.warn("Could not publish MentorshipAcceptedEvent for tutoring ID {}: No participants found.",
+                                                updatedTutoring.getId());
+                        }
+                }
+
                 return tutoringQuery.findTutoringById(updatedTutoring.getId())
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "Falha ao buscar monitoria recém-atualizada: "
@@ -484,30 +529,19 @@ public class TutoringCommandService implements TutoringCommand {
                                 && tutoring.getMentor().getId().equals(authenticatedUser.getId());
 
                 StatusTutoring newStatus = request.status();
-                StatusTutoring currentStatus = tutoring.getStatus();
+                StatusTutoring currentStatus = tutoring.getStatus(); // Captura o status ANTES da mudança
                 LocalDate currentDate = LocalDate.now();
                 LocalTime currentTime = LocalTime.now();
 
                 if (isAdmin) {
                         log.info("Admin {} is updating status for tutoring ID {} from {} to {}", requestingUserEmail,
                                         tutoringId, currentStatus, newStatus);
-                        // Admin can bypass some strict mentor transitions, but basic flow should be
-                        // respected if possible.
-                        // For now, we'll allow admin to make any transition listed in
-                        // MENTOR_ALLOWED_TRANSITIONS for simplicity,
-                        // but in a real scenario, admins might have even fewer restrictions or a
-                        // separate transition map.
                         Set<StatusTutoring> allowedTransitionsForCurrentStatus = MENTOR_ALLOWED_TRANSITIONS
                                         .getOrDefault(currentStatus,
-                                                        Set.of(StatusTutoring.CANCELADA, StatusTutoring.CONCLUIDA)); // Admins
-                                                                                                                     // can
-                                                                                                                     // usually
-                                                                                                                     // cancel/complete
+                                                        Set.of(StatusTutoring.CANCELADA, StatusTutoring.CONCLUIDA));
                         if (!allowedTransitionsForCurrentStatus.contains(newStatus)
                                         && newStatus != StatusTutoring.CANCELADA
                                         && newStatus != StatusTutoring.CONCLUIDA) {
-                                // Allow admin to cancel or complete from almost any state if not a standard
-                                // mentor transition
                                 log.warn("Admin {} attempted an unusual status transition for tutoring ID {} from {} to {}. This might be allowed due to admin privileges.",
                                                 requestingUserEmail, tutoringId, currentStatus, newStatus);
                         }
@@ -538,7 +572,6 @@ public class TutoringCommandService implements TutoringCommand {
                                                                                         TutoringMapper.DATE_FORMATTER)
                                                                         + ").");
                                 }
-                                // MODIFICATION: Allow starting 5 minutes before
                                 if (currentTime.isBefore(tutoring.getStartTime().minusMinutes(5))) {
                                         throw new TutoringOperationException(
                                                         "A mentoria pode ser iniciada a partir de 5 minutos antes do horário agendado ("
@@ -565,17 +598,14 @@ public class TutoringCommandService implements TutoringCommand {
                                 }
 
                                 if (!tutoring.getTutoringDate().equals(currentDate)) {
-                                        // TODO: Verificar a logica de uma mentoria que começa a meia noite.
-                                        // This check might be too restrictive if a mentoring session spans midnight or
-                                        // admin needs to fix it later.
-                                        // For now, keeping as is based on original logic.
                                         throw new TutoringOperationException(
                                                         "A mentoria só pode ser concluída no dia agendado ("
                                                                         + tutoring.getTutoringDate().format(
                                                                                         TutoringMapper.DATE_FORMATTER)
                                                                         + ").");
                                 }
-                                if (currentTime.isBefore(tutoring.getEndTime().minusMinutes(5))) {
+                                if (currentTime.isBefore(tutoring.getEndTime().minusMinutes(5))) { // Permite concluir
+                                                                                                   // um pouco antes
                                         throw new TutoringOperationException(
                                                         "A mentoria pode ser concluída a partir de 5 minutos antes do horário de término agendado ("
                                                                         + tutoring.getEndTime().format(
@@ -595,6 +625,112 @@ public class TutoringCommandService implements TutoringCommand {
                 Tutoring updatedTutoring = tutoringRepository.save(tutoring);
                 log.info("Status for tutoring ID: {} updated from {} to {} by user {}", tutoringId, currentStatus,
                                 newStatus, requestingUserEmail);
+
+                // Disparar evento MentorshipStartingEvent
+                if (currentStatus == StatusTutoring.AGENDADA && newStatus == StatusTutoring.EM_ANDAMENTO) {
+                        log.info("Tutoring ID {} changed from AGENDADA to EM_ANDAMENTO. Preparing to send MentorshipStartingEvent.",
+                                        updatedTutoring.getId());
+                        User mentor = updatedTutoring.getMentor();
+                        Discipline disciplina = updatedTutoring.getDiscipline();
+                        String horarioInicioFormatado = updatedTutoring.getStartTime() != null
+                                        ? updatedTutoring.getStartTime().format(TutoringMapper.TIME_FORMATTER)
+                                        : "N/A";
+
+                        if (mentor != null && disciplina != null) {
+                                Set<TutoringParticipants> participants = updatedTutoring.getTopics();
+                                if (participants != null && !participants.isEmpty()) {
+                                        for (TutoringParticipants participant : participants) {
+                                                User mentorado = participant.getUser();
+                                                if (mentorado != null) {
+                                                        try {
+                                                                MentorshipStartingEvent event = new MentorshipStartingEvent(
+                                                                                mentorado.getEmail(),
+                                                                                mentorado.getFirstName(),
+                                                                                mentor.getFirstName() + " "
+                                                                                                + mentor.getLastName(),
+                                                                                disciplina.getDisciplineName(),
+                                                                                horarioInicioFormatado,
+                                                                                updatedTutoring.getLinkVideo(),
+                                                                                updatedTutoring.getLocal(),
+                                                                                updatedTutoring.getTutoringClassType(),
+                                                                                updatedTutoring.getId());
+                                                                eventPublisher.publishEvent(event);
+                                                                log.info("MentorshipStartingEvent published for tutoring ID: {} for mentee: {}",
+                                                                                updatedTutoring.getId(),
+                                                                                mentorado.getEmail());
+                                                        } catch (Exception e) {
+                                                                log.error("Failed to publish MentorshipStartingEvent for tutoring ID {} and mentee {}: {}",
+                                                                                updatedTutoring.getId(),
+                                                                                mentorado.getEmail(), e.getMessage(),
+                                                                                e);
+                                                        }
+                                                } else {
+                                                        log.warn("Mentee object is null for a participant in tutoring ID {}.",
+                                                                        updatedTutoring.getId());
+                                                }
+                                        }
+                                } else {
+                                        log.info("No participants found for tutoring ID {} to notify about starting.",
+                                                        updatedTutoring.getId());
+                                }
+                        } else {
+                                log.warn("Could not publish MentorshipStartingEvent for tutoring ID {} due to missing mentor or discipline info.",
+                                                updatedTutoring.getId());
+                        }
+                }
+
+                // Disparar evento MentorshipCompletedEvent
+                if (currentStatus == StatusTutoring.EM_ANDAMENTO && newStatus == StatusTutoring.CONCLUIDA) {
+                        log.info("Tutoring ID {} changed from EM_ANDAMENTO to CONCLUIDA. Preparing to send MentorshipCompletedEvent.",
+                                        updatedTutoring.getId());
+                        User mentor = updatedTutoring.getMentor();
+                        Discipline disciplina = updatedTutoring.getDiscipline();
+
+                        if (mentor != null && disciplina != null) {
+                                Set<TutoringParticipants> participants = updatedTutoring.getTopics();
+                                if (participants != null && !participants.isEmpty()) {
+                                        for (TutoringParticipants participant : participants) {
+                                                User mentorado = participant.getUser();
+                                                // Não enviar para o próprio mentor
+                                                if (mentorado != null && (mentor.getId() == null
+                                                                || !mentor.getId().equals(mentorado.getId()))) {
+                                                        try {
+                                                                MentorshipCompletedEvent event = new MentorshipCompletedEvent(
+                                                                                mentorado.getEmail(),
+                                                                                mentorado.getFirstName(),
+                                                                                mentor.getFirstName() + " "
+                                                                                                + mentor.getLastName(),
+                                                                                disciplina.getDisciplineName(),
+                                                                                updatedTutoring.getId(),
+                                                                                mentorado.getId());
+                                                                eventPublisher.publishEvent(event);
+                                                                log.info("MentorshipCompletedEvent published for tutoring ID: {} for mentee: {}",
+                                                                                updatedTutoring.getId(),
+                                                                                mentorado.getEmail());
+                                                        } catch (Exception e) {
+                                                                log.error("Failed to publish MentorshipCompletedEvent for tutoring ID {} and mentee {}: {}",
+                                                                                updatedTutoring.getId(),
+                                                                                mentorado.getEmail(), e.getMessage(),
+                                                                                e);
+                                                        }
+                                                } else if (mentorado != null && mentor.getId() != null
+                                                                && mentor.getId().equals(mentorado.getId())) {
+                                                        log.info("Skipping MentorshipCompletedEvent for user {} as they are the mentor of tutoring ID {}.",
+                                                                        mentorado.getEmail(), updatedTutoring.getId());
+                                                } else {
+                                                        log.warn("Mentee object is null for a participant in tutoring ID {} when trying to send completion email.",
+                                                                        updatedTutoring.getId());
+                                                }
+                                        }
+                                } else {
+                                        log.info("No participants found for tutoring ID {} to notify about completion.",
+                                                        updatedTutoring.getId());
+                                }
+                        } else {
+                                log.warn("Could not publish MentorshipCompletedEvent for tutoring ID {} due to missing mentor or discipline info.",
+                                                updatedTutoring.getId());
+                        }
+                }
 
                 return tutoringQuery.findTutoringById(updatedTutoring.getId())
                                 .orElseThrow(() -> new IllegalStateException(
@@ -775,9 +911,9 @@ public class TutoringCommandService implements TutoringCommand {
                                         tutoringId);
                         throw new AccessDeniedException("Autenticação é necessária para esta operação.");
                 }
-                String requestingUser = authentication.getName();
+                String requestingUserEmail = authentication.getName();
                 log.info("Attempting to delete or cancel tutoring ID: {} requested by user {}", tutoringId,
-                                requestingUser);
+                                requestingUserEmail);
 
                 Tutoring tutoring = tutoringRepository.findById(tutoringId)
                                 .orElseThrow(() -> {
@@ -787,17 +923,17 @@ public class TutoringCommandService implements TutoringCommand {
                                                         "Monitoria não encontrada com ID: " + tutoringId);
                                 });
 
-                User authenticatedUser = userQuery.findByEmail(requestingUser)
+                User authenticatedUser = userQuery.findByEmail(requestingUserEmail)
                                 .map(userRep -> userQuery.getUserReferenceById(userRep.id()))
                                 .orElseThrow(() -> new UserNotFoundException(
-                                                "Usuário autenticado (" + requestingUser + ") não encontrado."));
+                                                "Usuário autenticado (" + requestingUserEmail + ") não encontrado."));
 
                 boolean isAdmin = authenticatedUser.getRole() == Role.ADMIN;
                 boolean isMentorOfTutoring = tutoring.getMentor() != null
                                 && tutoring.getMentor().getId().equals(authenticatedUser.getId());
 
                 if (!isAdmin && !isMentorOfTutoring) {
-                        log.warn("User {} is not authorized to delete/cancel tutoring ID {}", requestingUser,
+                        log.warn("User {} is not authorized to delete/cancel tutoring ID {}", requestingUserEmail,
                                         tutoringId);
                         throw new AccessDeniedException("Usuário não autorizado a excluir ou cancelar esta monitoria.");
                 }
@@ -805,21 +941,125 @@ public class TutoringCommandService implements TutoringCommand {
                 if (tutoring.getStatus() == StatusTutoring.CONCLUIDA
                                 || tutoring.getStatus() == StatusTutoring.CANCELADA) {
                         log.warn("User {} attempted to delete/cancel tutoring ID {} with status {}, which is not allowed.",
-                                        requestingUser, tutoringId, tutoring.getStatus());
+                                        requestingUserEmail, tutoringId, tutoring.getStatus());
                         throw new TutoringOperationException("Monitoria não pode ser alterada pois seu status é "
                                         + tutoring.getStatus().toString().toLowerCase() + ".");
                 }
 
+                User mentor = tutoring.getMentor();
+                Discipline disciplina = tutoring.getDiscipline();
+                String dataFormatada = tutoring.getTutoringDate() != null
+                                ? tutoring.getTutoringDate().format(TutoringMapper.DATE_FORMATTER)
+                                : "Data não definida";
+                String horarioFormatado = tutoring.getStartTime() != null
+                                ? tutoring.getStartTime().format(TutoringMapper.TIME_FORMATTER)
+                                : "Horário não definido";
+                String nomeDisciplina = disciplina != null ? disciplina.getDisciplineName()
+                                : "Disciplina não informada";
+                Set<TutoringParticipants> participants = new HashSet<>(tutoring.getTopics());
+                String cancelContext = isAdmin ? "pelo administrador"
+                                : (isMentorOfTutoring ? "pelo mentor" : "por uma ação do sistema");
+
                 if (tutoring.getStatus() == StatusTutoring.PENDENTE) {
-                        tutoringParticipantsRepository.deleteAllByTutoringId(tutoringId);
-                        tutoringRepository.deleteById(tutoringId);
+                        tutoringParticipantsRepository.deleteAllByTutoringId(tutoringId); // Remove participantes
+                                                                                          // primeiro
+                        tutoringRepository.deleteById(tutoringId); // Deleta a mentoria
                         log.info("Tutoring ID: {} with status PENDENTE successfully deleted by user {}", tutoringId,
-                                        requestingUser);
-                } else { // AGENDADA ou EM_ANDAMENTO
+                                        requestingUserEmail);
+
+                        if (mentor != null && !(isMentorOfTutoring && !isAdmin)) {
+
+                                try {
+                                        MentorshipCancelledEvent eventParaMentor = new MentorshipCancelledEvent(
+                                                        mentor.getEmail(),
+                                                        mentor.getFirstName(),
+                                                        nomeDisciplina,
+                                                        dataFormatada,
+                                                        horarioFormatado,
+                                                        tutoringId,
+                                                        "A solicitação de mentoria pendente foi removida "
+                                                                        + cancelContext + ".");
+                                        eventPublisher.publishEvent(eventParaMentor);
+                                        log.info("MentorshipCancelledEvent (PENDING deleted) published for MENTOR: {}",
+                                                        mentor.getEmail());
+                                } catch (Exception e) {
+                                        log.error("Failed to publish MentorshipCancelledEvent (PENDING deleted) for MENTOR {}: {}",
+                                                        mentor.getEmail(), e.getMessage(), e);
+                                }
+                        }
+                        for (TutoringParticipants participant : participants) {
+                                User mentorado = participant.getUser();
+                                if (mentorado != null) {
+                                        try {
+                                                MentorshipCancelledEvent eventParaMentorado = new MentorshipCancelledEvent(
+                                                                mentorado.getEmail(),
+                                                                mentorado.getFirstName(),
+                                                                nomeDisciplina,
+                                                                dataFormatada,
+                                                                horarioFormatado,
+                                                                tutoringId,
+                                                                "A solicitação de mentoria pendente foi removida "
+                                                                                + cancelContext + ".");
+                                                eventPublisher.publishEvent(eventParaMentorado);
+                                                log.info("MentorshipCancelledEvent (PENDING deleted) published for mentee: {}",
+                                                                mentorado.getEmail());
+                                        } catch (Exception e) {
+                                                log.error("Failed to publish MentorshipCancelledEvent (PENDING deleted) for mentee {}: {}",
+                                                                mentorado.getEmail(), e.getMessage(), e);
+                                        }
+                                }
+                        }
+
+                } else {
                         tutoring.setStatus(StatusTutoring.CANCELADA);
-                        tutoringRepository.save(tutoring);
-                        log.info("Tutoring ID: {} status changed to CANCELADA by user {}", tutoringId, requestingUser);
-                        // Adicional: notificar participantes sobre o cancelamento
+                        Tutoring cancelledTutoring = tutoringRepository.save(tutoring);
+                        log.info("Tutoring ID: {} status changed to CANCELADA by user {}", tutoringId,
+                                        requestingUserEmail);
+
+                        if (mentor != null && !(isMentorOfTutoring && !isAdmin)) {
+                                try {
+                                        MentorshipCancelledEvent eventParaMentor = new MentorshipCancelledEvent(
+                                                        mentor.getEmail(),
+                                                        mentor.getFirstName(),
+                                                        nomeDisciplina,
+                                                        dataFormatada,
+                                                        horarioFormatado,
+                                                        cancelledTutoring.getId(),
+                                                        "Esta mentoria que você iria ministrar foi cancelada "
+                                                                        + cancelContext + ".");
+                                        eventPublisher.publishEvent(eventParaMentor);
+                                        log.info("MentorshipCancelledEvent published for MENTOR: {}",
+                                                        mentor.getEmail());
+                                } catch (Exception e) {
+                                        log.error("Failed to publish MentorshipCancelledEvent for MENTOR {}: {}",
+                                                        mentor.getEmail(), e.getMessage(), e);
+                                }
+                        }
+
+                        if (!participants.isEmpty()) {
+                                for (TutoringParticipants participant : participants) {
+                                        User mentorado = participant.getUser();
+                                        if (mentorado != null) {
+                                                try {
+                                                        MentorshipCancelledEvent eventParaMentorado = new MentorshipCancelledEvent(
+                                                                        mentorado.getEmail(),
+                                                                        mentorado.getFirstName(),
+                                                                        nomeDisciplina,
+                                                                        dataFormatada,
+                                                                        horarioFormatado,
+                                                                        cancelledTutoring.getId(),
+                                                                        "A mentoria foi cancelada " + cancelContext
+                                                                                        + ".");
+                                                        eventPublisher.publishEvent(eventParaMentorado);
+                                                        log.info("MentorshipCancelledEvent published for mentee: {}",
+                                                                        mentorado.getEmail());
+                                                } catch (Exception e) {
+                                                        log.error("Failed to publish MentorshipCancelledEvent for mentee {}: {}",
+                                                                        mentorado.getEmail(), e.getMessage(), e);
+                                                }
+                                        }
+                                }
+                        }
                 }
         }
 
