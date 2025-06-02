@@ -6,6 +6,7 @@ import com.projetointegrador.seumentor.chat.dto.ChatOutputDTO;
 import com.projetointegrador.seumentor.chat.enums.MessageType;
 import com.projetointegrador.seumentor.chat.service.ChatService;
 import com.projetointegrador.seumentor.user.api.UserQuery;
+import com.projetointegrador.seumentor.user.api.dtos.UserProfileImgIdRepresentation;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/cloudstorage/file")
@@ -160,7 +162,7 @@ public class StorageController {
         }
     }
 
-    @GetMapping("/profile-image/{userId}/{fileName}")
+    @GetMapping("/profile-image/{userId}")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Obter URL assinada para imagem de perfil", description = "Gera uma URL assinada temporária para acessar uma imagem de perfil específica do usuário.")
     @ApiResponses(value = {
@@ -169,11 +171,11 @@ public class StorageController {
             @ApiResponse(responseCode = "500", description = "Erro interno no servidor", content = @Content)
     })
     public ResponseEntity<String> getProfileImageUrl(
-            @Parameter(description = "ID do usuário proprietário da imagem", required = true, example = "123") @PathVariable Long userId, 
-            @Parameter(description = "Nome do arquivo da imagem (ex: user-123-seu-mentor-uuid.png)", required = true) @PathVariable String fileName,
+            @Parameter(description = "ID do usuário proprietário da imagem", required = true, example = "123") @PathVariable Long userId,
             Authentication authentication) {
-        String key = "profile-images/" + String.valueOf(userId) + "/" + fileName;
-        String url = storageService.getProfileImageUrl(key, Duration.ofHours(23));
+        
+        String key = "profile-images/" + userQuery.findProfileImgIdByUserId(userId).profileImgId() + userQuery.findProfileImgIdByUserId(userId).extension();
+        String url = storageService.getProfileImageUrl(key, Duration.ofDays(7));
         return ResponseEntity.ok(url);
     }
 

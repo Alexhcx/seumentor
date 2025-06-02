@@ -2,10 +2,11 @@ package com.projetointegrador.seumentor.user.api;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-import com.projetointegrador.seumentor.tutoring.api.dto.TutoringRepresentation;
+import com.projetointegrador.seumentor.user.api.dtos.UserProfileImgIdRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
-import com.projetointegrador.seumentor.user.model.User; // Necessário para getUserReferenceById
+import com.projetointegrador.seumentor.user.model.User; 
 import org.springframework.transaction.annotation.Transactional;
 
 public interface UserQuery {
@@ -18,6 +19,9 @@ public interface UserQuery {
 
     @Transactional
     User getUserReferenceById(Long userId);
+
+    @Transactional(readOnly = true)
+    UserProfileImgIdRepresentation findProfileImgIdByUserId(Long userId);
 
     @Transactional(readOnly = true)
     List<UserRepresentation> findAllUserRepresentations();

@@ -33,6 +33,8 @@ public class User extends BaseEntity implements UserDetails {
     @Column(length = 500)
     private String profileImg;
     @Column(unique = true)
+    private UUID profileImgId;
+    @Column(unique = true)
     private String email;
     private String password;
     private String birthday;

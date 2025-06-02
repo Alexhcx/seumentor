@@ -1,18 +1,19 @@
 package com.projetointegrador.seumentor.cloudstorage.service;
 
-import com.projetointegrador.seumentor.tutoring.api.TutoringQuery; // Assuming you'll need this for mentor check
+import com.projetointegrador.seumentor.tutoring.api.TutoringQuery; 
 import com.projetointegrador.seumentor.tutoring.exception.TutoringNotFoundException;
 import com.projetointegrador.seumentor.user.api.UserCommand;
 import com.projetointegrador.seumentor.user.api.UserQuery;
+import com.projetointegrador.seumentor.user.api.dtos.SetProfileImgIdRequest;
 import com.projetointegrador.seumentor.user.api.dtos.UserRepresentation;
 import com.projetointegrador.seumentor.user.api.dtos.UserUpdateRequest;
 import com.projetointegrador.seumentor.user.enums.Role;
 import com.projetointegrador.seumentor.user.exception.UserNotFoundException;
-import com.projetointegrador.seumentor.user.model.User; // Import User model
+import com.projetointegrador.seumentor.user.model.User; 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.access.AccessDeniedException; // Import AccessDeniedException
-import org.springframework.security.core.Authentication; // Import Authentication
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication; 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.ResponseInputStream;
@@ -87,8 +88,6 @@ public class StorageService {
 
         File fileObj = convertMultiPartFileToFile(file);
         String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "arquivo";
-        // Ensure mentoriaId in path is the Long version for consistency if used
-        // elsewhere
         String fileName = ANEXOS_FOLDER + mentoriaId + "/" + System.currentTimeMillis() + "_" + originalFilename;
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -126,6 +125,24 @@ public class StorageService {
         log.info("Usuário {} (ID: {}) autorizado a fazer upload de imagem de perfil para o usuário ID {} (isAdmin: {})",
                 authenticatedUserEmail, authenticatedUserPrincipal.getId(), userId, isAdmin);
 
+        try {
+            Optional<UserRepresentation> userOpt = userQuery.findById(userId);
+            if (userOpt.isPresent() && userOpt.get().profileImg() != null && !userOpt.get().profileImg().isEmpty()) {
+                String currentImageUrl = userOpt.get().profileImg();
+                String fileKey = extractFileKeyFromUrl(currentImageUrl);
+                if (fileKey != null) {
+                    try {
+                        deleteFile(fileKey);
+                        log.info("Imagem de perfil anterior deletada para o usuário ID: {}", userId);
+                    } catch (Exception e) {
+                        log.warn("Falha ao deletar imagem de perfil anterior para o usuário ID: {}", userId, e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Erro ao verificar imagem de perfil existente para o usuário ID: {}", userId, e);
+        }
+
         String originalFilename = file.getOriginalFilename();
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
@@ -136,9 +153,13 @@ public class StorageService {
             throw new IllegalArgumentException("Formato de arquivo não permitido. Apenas JPG e PNG são aceitos.");
         }
 
+        UUID imgId = UUID.randomUUID();
+        SetProfileImgIdRequest setProfileImgIdRequest = new SetProfileImgIdRequest(imgId);
+        userCommandService.setProfileImgId(userId, setProfileImgIdRequest);
+
         File fileObj = convertMultiPartFileToFile(file);
-        String standardizedFileName = "user-" + userId + "-seu-mentor-" + UUID.randomUUID().toString() + extension;
-        String filePath = PROFILE_IMAGES_FOLDER + userId + "/" + standardizedFileName;
+        String standardizedFileName = String.valueOf(imgId) + extension;
+        String filePath = PROFILE_IMAGES_FOLDER + standardizedFileName;
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -169,8 +190,36 @@ public class StorageService {
         }
         return imageUrl;
     }
+    
+    private String extractFileKeyFromUrl(String url) {
+        try {
+            if (url == null || url.isEmpty()) {
+                return null;
+            }
+            
+            // Verificar se a URL contém o caminho do bucket e da pasta de imagens de perfil
+            if (url.contains(bucketName) && url.contains(PROFILE_IMAGES_FOLDER)) {
+                // Extrair a parte da URL que contém a chave do arquivo
+                int startIndex = url.indexOf(PROFILE_IMAGES_FOLDER);
+                if (startIndex >= 0) {
+                    // Extrair a chave até o fim da URL ou até o primeiro '?' (início dos parâmetros da URL)
+                    int endIndex = url.indexOf('?', startIndex);
+                    if (endIndex > 0) {
+                        return url.substring(startIndex, endIndex);
+                    } else {
+                        return url.substring(startIndex);
+                    }
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Erro ao extrair chave do arquivo da URL: {}", url, e);
+            return null;
+        }
+    }
 
     public String getProfileImageUrl(String fileKey, Duration expiration) {
+
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(fileKey)

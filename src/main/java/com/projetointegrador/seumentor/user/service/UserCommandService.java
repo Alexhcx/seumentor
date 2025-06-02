@@ -158,6 +158,22 @@ public class UserCommandService implements UserCommand {
 
   @Override
   @Transactional
+  public SetProfileImgIdRequest setProfileImgId(Long userId, SetProfileImgIdRequest request) {
+    log.info("Command: Attempting to set profileImgId for user ID: {}", userId);
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> {
+          log.warn("Command: Set profileImgId failed: User not found with ID: {}", userId);
+          return new UserNotFoundException("Usuário não encontrado com ID: " + userId);
+        });
+
+    user.setProfileImgId(request.profileImgId());
+    userRepository.save(user);
+    log.info("Command: ProfileImgId {} set successfully for user ID: {}", request.profileImgId(), userId);
+    return request; 
+  }
+
+  @Override
+  @Transactional
   public void resetPassword(String token, String newPassword) throws Exception {
     log.info("Command: Attempting password reset with token (token not logged)");
     if (token == null || token.isEmpty()) {
