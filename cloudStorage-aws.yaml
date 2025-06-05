@@ -21,4 +21,4 @@ spring:
       max-request-size: 20MB
 
 server:
-  port: ${BACKEND_PORT}
+  port: ${BACKEND_PORT:8080}
