@@ -4,6 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .env.local
+cloudStorage.yaml
 config-local.properties
 expressions.txt
 git-filter-repo
