@@ -8,6 +8,7 @@ config-local.properties
 cloudstorage.yaml
 expressions.txt
 git-filter-repo
+application.yaml
 
 ### STS ###
 .apt_generated

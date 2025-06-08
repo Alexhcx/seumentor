@@ -288,4 +288,64 @@ public class EmailService {
                     tutoringId, e.getMessage(), e);
         }
     }
+
+     @Async
+    public void enviarEmailMentoriaSolicitada(String destinatario, String nomeMentor, String nomeMentorado, String nomeDisciplina, Long tutoringId) {
+        log.info("Tentando enviar email de nova solicitação de mentoria para: {}", destinatario);
+        try {
+            Context context = new Context();
+            context.setVariable("nomeMentor", nomeMentor);
+            context.setVariable("nomeMentorado", nomeMentorado);
+            context.setVariable("nomeDisciplina", nomeDisciplina);
+            context.setVariable("nomeProjeto", this.nomeProjeto);
+            context.setVariable("linkMentoria", this.baseUrl + "/perfil");
+            context.setVariable("linkAjuda", this.baseUrl + this.pathAjuda);
+            context.setVariable("nomeEmpresa", this.nomeEmpresa);
+            context.setVariable("enderecoEmpresa", this.enderecoEmpresa);
+
+            String corpoHtml = templateEngine.process("mentoria-solicitada", context);
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
+
+            helper.setTo(destinatario);
+            helper.setSubject("Nova Solicitação de Mentoria: " + nomeDisciplina);
+            helper.setText(corpoHtml, true);
+            helper.setFrom(this.emailFrom);
+
+            mailSender.send(mimeMessage);
+            log.info("Email de solicitação de mentoria enviado async para: {}", destinatario);
+        } catch (Exception e) {
+            log.error("Erro ao enviar email de solicitação de mentoria para {}: {}", destinatario, e.getMessage(), e);
+        }
+    }
+
+    @Async
+    public void enviarEmailNovoParticipante(String destinatario, String nomeMentor, String nomeNovoParticipante, String nomeDisciplina, Long tutoringId) {
+        log.info("Tentando enviar email de novo participante para mentoria {} para: {}", tutoringId, destinatario);
+        try {
+            Context context = new Context();
+            context.setVariable("nomeMentor", nomeMentor);
+            context.setVariable("nomeNovoParticipante", nomeNovoParticipante);
+            context.setVariable("nomeDisciplina", nomeDisciplina);
+            context.setVariable("nomeProjeto", this.nomeProjeto);
+            context.setVariable("linkMentoria", this.baseUrl + "/perfil");
+            context.setVariable("linkAjuda", this.baseUrl + this.pathAjuda);
+            context.setVariable("nomeEmpresa", this.nomeEmpresa);
+            context.setVariable("enderecoEmpresa", this.enderecoEmpresa);
+
+            String corpoHtml = templateEngine.process("participante-entrou", context);
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
+
+            helper.setTo(destinatario);
+            helper.setSubject("Novo Participante na sua Mentoria de " + nomeDisciplina);
+            helper.setText(corpoHtml, true);
+            helper.setFrom(this.emailFrom);
+
+            mailSender.send(mimeMessage);
+            log.info("Email de novo participante enviado async para: {}", destinatario);
+        } catch (Exception e) {
+            log.error("Erro ao enviar email de novo participante para {}: {}", destinatario, e.getMessage(), e);
+        }
+    }
 }

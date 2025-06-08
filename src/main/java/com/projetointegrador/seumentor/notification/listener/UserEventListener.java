@@ -11,7 +11,9 @@ import com.projetointegrador.seumentor.notification.service.EmailService;
 import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipAcceptedEvent;
 import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipCancelledEvent;
 import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipCompletedEvent;
+import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipRequestedEvent;
 import com.projetointegrador.seumentor.tutoring.api.dto.MentorshipStartingEvent;
+import com.projetointegrador.seumentor.tutoring.api.dto.ParticipantJoinedEvent;
 import com.projetointegrador.seumentor.user.api.events.PasswordResetRequestedEvent;
 import com.projetointegrador.seumentor.user.api.events.UserRegisteredEvent;
 
@@ -122,4 +124,39 @@ public class UserEventListener {
           e.getMessage(), e);
     }
   }
+
+  @EventListener
+    @Async
+    public void handleMentorshipRequestedEvent(MentorshipRequestedEvent event) {
+        log.info("Received MentorshipRequestedEvent for mentor email: {}, tutoringId: {}", event.emailMentor(), event.tutoringId());
+        try {
+            emailService.enviarEmailMentoriaSolicitada(
+                event.emailMentor(),
+                event.nomeMentor(),
+                event.nomeMentorado(),
+                event.nomeDisciplina(),
+                event.tutoringId()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send mentorship requested email for mentor email {}: {}", event.emailMentor(), e.getMessage(), e);
+        }
+    }
+
+    @EventListener
+    @Async
+    public void handleParticipantJoinedEvent(ParticipantJoinedEvent event) {
+        log.info("Received ParticipantJoinedEvent for mentor email: {}, tutoringId: {}", event.emailMentor(), event.tutoringId());
+        try {
+            emailService.enviarEmailNovoParticipante(
+                event.emailMentor(),
+                event.nomeMentor(),
+                event.nomeNovoParticipante(),
+                event.nomeDisciplina(),
+                event.tutoringId()
+            );
+        } catch (Exception e) {
+            log.error("Failed to send participant joined email for mentor email {}: {}", event.emailMentor(), e.getMessage(), e);
+        }
+    }
+
 }
