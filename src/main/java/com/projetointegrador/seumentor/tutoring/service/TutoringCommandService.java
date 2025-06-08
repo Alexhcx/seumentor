@@ -187,6 +187,21 @@ public class TutoringCommandService implements TutoringCommand {
                 log.info("Mentee {} added as the first participant to tutoring {} with topic '{}'", mentee.getId(),
                                 savedTutoring.getId(), request.topic());
 
+                try {
+                        MentorshipRequestedEvent event = new MentorshipRequestedEvent(
+                                        mentor.getEmail(),
+                                        mentor.getFirstName() + " " + mentor.getLastName(),
+                                        mentee.getFirstName() + " " + mentee.getLastName(),
+                                        discipline.getDisciplineName(),
+                                        savedTutoring.getId());
+                        eventPublisher.publishEvent(event);
+                        log.info("MentorshipRequestedEvent published for tutoring ID: {} for mentor: {}",
+                                        savedTutoring.getId(), mentor.getEmail());
+                } catch (Exception e) {
+                        log.error("Failed to publish MentorshipRequestedEvent for tutoring ID {}: {}",
+                                        savedTutoring.getId(), e.getMessage(), e);
+                }
+
                 ScheduledTutoringRepresentation representation = tutoringMapper
                                 .toScheduledTutoringRepresentation(savedTutoring);
                 int qtdParticipants = tutoringParticipantsRepository.countByTutoringId(savedTutoring.getId());
@@ -785,15 +800,12 @@ public class TutoringCommandService implements TutoringCommand {
 
                 User participantUser = userQuery.getUserReferenceById(request.userId());
 
-                // **** VALIDAÇÃO PRINCIPAL: Impede que o mentor da tutoria se adicione como
-                // participante ****
                 if (tutoring.getMentor() != null && tutoring.getMentor().getId().equals(participantUser.getId())) {
                         log.warn("Add participant failed: Mentor (ID: {}) cannot be added as a participant to their own tutoring (ID: {}).",
                                         participantUser.getId(), tutoringId);
                         throw new TutoringOperationException(
                                         "O mentor da monitoria não pode se inscrever como participante na própria monitoria.");
                 }
-                // **** FIM DA VALIDAÇÃO PRINCIPAL ****
 
                 List<StatusTutoring> statusesToCheckForConflict = Arrays.asList(
                                 StatusTutoring.PENDENTE, StatusTutoring.AGENDADA, StatusTutoring.EM_ANDAMENTO);
@@ -827,6 +839,25 @@ public class TutoringCommandService implements TutoringCommand {
                 tutoringParticipantsRepository.save(newParticipant);
                 log.info("User ID {} successfully added as participant to tutoring ID {} with topic '{}'",
                                 request.userId(), tutoringId, request.topic());
+
+                try {
+                        User mentor = tutoring.getMentor();
+                        Discipline discipline = tutoring.getDiscipline();
+                        if (mentor != null && discipline != null) {
+                                ParticipantJoinedEvent event = new ParticipantJoinedEvent(
+                                                mentor.getEmail(),
+                                                mentor.getFirstName() + " " + mentor.getLastName(),
+                                                participantUser.getFirstName() + " " + participantUser.getLastName(),
+                                                discipline.getDisciplineName(),
+                                                tutoringId);
+                                eventPublisher.publishEvent(event);
+                                log.info("ParticipantJoinedEvent published for tutoring ID: {} for mentor: {}",
+                                                tutoringId, mentor.getEmail());
+                        }
+                } catch (Exception e) {
+                        log.error("Failed to publish ParticipantJoinedEvent for tutoring ID {}: {}", tutoringId,
+                                        e.getMessage(), e);
+                }
 
                 return tutoringQuery.findTutoringById(tutoringId)
                                 .orElseThrow(() -> new IllegalStateException(
